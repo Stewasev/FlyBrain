@@ -90,32 +90,18 @@ function makeCoin(obverse, reverse, diameterMm, thickMm) {
 }
 
 function makeHair() {
-  const g = new THREE.Group();
+  const pts = [];
+  const len = 2500;
+  for (let i = 0; i <= 24; i++) {
+    const t = i / 24;
+    pts.push(new THREE.Vector3(Math.sin(t * 2.2) * 25, Math.sin(t * 3.1) * 18, t * len));
+  }
   const mat = new THREE.MeshStandardMaterial({
     color: 0x3a2418,
     roughness: 0.45,
     metalness: 0.05,
   });
-  const r = 35;
-  for (let s = 0; s < 7; s++) {
-    const pts = [];
-    const len = 6000 + s * 400;
-    const k = (s - 3) * 80;
-    for (let i = 0; i <= 24; i++) {
-      const t = i / 24;
-      pts.push(
-        new THREE.Vector3(
-          Math.sin(t * 3 + s) * (40 + s * 8),
-          k + Math.sin(t * 5 + s * 0.7) * 30,
-          t * len
-        )
-      );
-    }
-    const curve = new THREE.CatmullRomCurve3(pts);
-    const mesh = new THREE.Mesh(new THREE.TubeGeometry(curve, 40, r, 6, false), mat);
-    g.add(mesh);
-  }
-  return g;
+  return new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 40, 35, 8, false), mat);
 }
 
 function makePaperclip() {
@@ -185,7 +171,6 @@ function makeHouseFly() {
       g.add(leg);
     }
   }
-  g.rotation.y = Math.PI / 2;
   return g;
 }
 
@@ -215,34 +200,34 @@ export async function fillScaleObjects(root) {
     loadTex(new URL("quarter-reverse.png", models).href),
   ]);
 
-  const hair = wrap(makeHair(), 180, 500, "human hair  ~70 µm", 1400, new THREE.Vector3(0, 250, 3200));
-  hair.position.set(0, -380, -400);
+  const hair = wrap(makeHair(), 120, 400, "human hair  ~70 µm", 1200, new THREE.Vector3(0, 180, 1250));
+  hair.position.set(0, -420, -2200);
 
-  const fly = wrap(makeHouseFly(), 700, 1400, "house fly  ~7 mm", 2200, new THREE.Vector3(0, 2200, 0));
-  fly.position.set(0, -1400, 4200);
+  const fly = wrap(makeHouseFly(), 1500, 2800, "house fly  ~7 mm", 2800, new THREE.Vector3(0, 2800, 0));
+  fly.position.set(0, -900, 6500);
 
   const dime = wrap(
     makeCoin(dOb, dRe, 17.91, 1.35),
-    1800,
-    3500,
+    4000,
+    7000,
     "dime  17.9 mm",
-    2800,
+    3200,
     new THREE.Vector3(0, 11000, 0)
   );
-  dime.position.set(0, -200, 14000);
+  dime.position.set(0, 0, 22000);
 
   const quarter = wrap(
     makeCoin(qOb, qRe, 24.26, 1.75),
-    2800,
-    5200,
+    8000,
+    13000,
     "quarter  24.3 mm",
-    3600,
+    4000,
     new THREE.Vector3(0, 14500, 0)
   );
-  quarter.position.set(0, -200, 28000);
+  quarter.position.set(0, 0, 50000);
 
-  const clip = wrap(makePaperclip(), 4000, 7000, "paperclip  ~33 mm", 4200, new THREE.Vector3(0, 9000, 16000));
-  clip.position.set(0, -2500, 42000);
+  const clip = wrap(makePaperclip(), 14000, 22000, "paperclip  ~33 mm", 4800, new THREE.Vector3(0, 8000, 16500));
+  clip.position.set(0, -4000, 78000);
 
   root.add(hair, fly, dime, quarter, clip);
 }
