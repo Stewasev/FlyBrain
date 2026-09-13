@@ -31,6 +31,7 @@ import { activityFocus, createSim, hottest, LIVE_MODES, setSimMode, stepSim } fr
 import { neuronsOfType, searchCatalog } from "./search.js";
 import { addScaleLights, fillScaleObjects } from "./scale-objects.js";
 import { formatStep } from "./stories.js";
+import { clearFruit, createWorld, giveFruit, setFlyGhost, tickWorld } from "./world.js";
 
 const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 const canvas = document.getElementById("view");
@@ -58,6 +59,8 @@ world.scene.add(overlay.skeletons);
 world.scene.add(focusCloud);
 addScaleLights(world.scene);
 fillScaleObjects(world.scale).catch((err) => console.warn("scale objects", err));
+const habitat = createWorld();
+world.scene.add(habitat.root);
 
 const state = {
   pack: null,
@@ -307,28 +310,28 @@ function showTab(name) {
   document.getElementById("panel-live").hidden = tours;
 }
 
-function setLivePlate() {
-  const mode = LIVE_MODES.find((m) => m.id === state.liveMode) || LIVE_MODES[0];
+function setLivePlate(behavior) {
+  const copy = {
+    wander: { title: "Walking", narration: "No fruit in range. Descending and motor cells step the VNC." },
+    seek: { title: "Found fruit", narration: "Visual and olfactory cells lock on. She's walking to it." },
+    feed: { title: "Feeding", narration: "Proboscis down. Taste and feeding circuits take over." },
+  };
+  const view = copy[behavior] || copy.wander;
   plate.hidden = false;
-  document.getElementById("plate-kicker").textContent = "Live · simulated spikes";
-  document.getElementById("plate-title").textContent = mode.title;
-  document.getElementById("plate-copy").textContent = mode.narration;
-  document.getElementById("plate-beats").innerHTML = LIVE_MODES.map(
-    (m) => `<li class="${m.id === state.liveMode ? "on" : ""}"></li>`
-  ).join("");
-  for (const b of document.querySelectorAll("#live-modes button")) {
-    b.classList.toggle("active", b.dataset.mode === state.liveMode);
-  }
+  document.getElementById("plate-kicker").textContent = "Live · a fly using this brain";
+  document.getElementById("plate-title").textContent = view.title;
+  document.getElementById("plate-copy").textContent = view.narration;
+  document.getElementById("plate-beats").innerHTML = "";
 }
 
 function ensureSim() {
   if (!state.sim) state.sim = createSim(state.points.userData.soma, state.partners);
 }
 
-function startLive(mode = "vision") {
-  const spec = LIVE_MODES.find((m) => m.id === mode) || LIVE_MODES[1];
+function startLive() {
   state.live = true;
-  state.liveMode = spec.id;
+  state.liveMode = "walk";
+  state.liveShuffle = false;
   state.tour = null;
   state.playing = false;
   state.selected = null;
@@ -336,14 +339,24 @@ function startLive(mode = "vision") {
   hitsEl.hidden = true;
   showTab("live");
   ensureSim();
-  setSimMode(state.sim, state.neurons, state.strings, spec.id);
+  setSimMode(state.sim, state.neurons, state.strings, "walk");
   state.sim.energy.fill(0);
-  state.liveShuffleAt = performance.now();
   markTourButtons();
   setPartnerLines(overlay, null, null, state.byId);
-  if (state.laceMesh) state.laceMesh.material.opacity = 0.08;
+  if (state.laceMesh) state.laceMesh.material.opacity = 0.22;
   updateFocusCloud(focusCloud, [], state.strings, state.color);
-  setLivePlate();
+  world.scale.visible = false;
+  habitat.root.visible = true;
+  if (!habitat.fruits.length) giveFruit(habitat, "grape");
+  habitat.agent.add(state.cnsRoot);
+  state.cnsRoot.position.set(0, 80, 200);
+  state.cnsRoot.rotation.set(0, 0, 0);
+  state.cnsRoot.scale.setScalar(1);
+  if (state.points) state.points.material.size = 12;
+  const f = habitat.agent.position;
+  world.controls.target.copy(f);
+  world.camera.position.set(f.x + 9000, f.y + 5000, f.z + 7000);
+  setLivePlate("wander");
   paint();
   writeHash();
 }
@@ -352,6 +365,13 @@ function stopLive() {
   if (!state.live) return;
   state.live = false;
   if (state.sim) state.sim.energy.fill(0);
+  world.scene.add(state.cnsRoot);
+  state.cnsRoot.position.set(0, 0, 0);
+  state.cnsRoot.rotation.set(0, 0, 0);
+  state.cnsRoot.scale.setScalar(1);
+  if (state.points) state.points.material.size = 9;
+  habitat.root.visible = false;
+  world.scale.visible = true;
   showTab("tours");
   plate.hidden = true;
   setLaceDim(state.laceMesh, false);
@@ -524,7 +544,7 @@ document.getElementById("tab-tours").addEventListener("click", () => {
   stopLive();
   writeHash();
 });
-document.getElementById("tab-live").addEventListener("click", () => startLive(state.liveMode));
+document.getElementById("tab-live").addEventListener("click", () => startLive());
 copyBtn.addEventListener("click", async () => {
   writeHash();
   const url = window.location.href;
@@ -557,7 +577,12 @@ window.addEventListener("keydown", (ev) => {
   else if (ev.key === "2") startTour("walking");
   else if (ev.key === "3") startTour("vision");
   else if (ev.key === "4") startTour("dimorphism");
-  else if (ev.key === "l" || ev.key === "L" || ev.key === "5") startLive(state.liveMode || "vision");
+  else if (ev.key === "l" || ev.key === "L" || ev.key === "5") startLive();
+  else if (ev.key === "f" || ev.key === "F") {
+    if (state.live) {
+      giveFruit(habitat, Math.random() < 0.5 ? "banana" : "grape");
+    }
+  }
   else if (ev.key === "/") {
     ev.preventDefault();
     document.getElementById("search").focus();
@@ -583,24 +608,22 @@ function tick(now) {
   const tweening = tickTween(camAnim, world.camera, world.controls, now);
   if (state.playing && state.tour && now - state.playAt > 5500) stepTour(1);
   if (state.live && state.sim) {
+    const bh = tickWorld(habitat, 0.016, now);
+    const want = bh === "seek" ? "vision" : bh === "feed" ? "drift" : "walk";
+    if (want !== state.liveMode) {
+      state.liveMode = want;
+      setSimMode(state.sim, state.neurons, state.strings, want);
+      setLivePlate(bh);
+    }
     stepSim(state.sim, now);
     const soma = state.points.userData.soma;
     const hot = hottest(state.sim.energy, 32, 0.2);
     const sparks = hot.filter((i) => state.sim.energy[i] > 0.35).map((i) => soma[i]);
     updateFocusCloud(focusCloud, sparks, state.strings, state.color);
     setFireLines(overlay, soma, state.sim, hot);
-    const focus = activityFocus(soma, state.sim.energy);
-    if (focus && !tweening) chaseActivity(world.camera, world.controls, focus, 0.016);
+    setFlyGhost(habitat.fly, world.camera, habitat.agent.position);
+    world.controls.target.lerp(habitat.agent.position, 0.05);
     paint();
-    if (state.liveShuffle && now - state.liveShuffleAt > 14000) {
-      const i = LIVE_MODES.findIndex((m) => m.id === state.liveMode);
-      const next = LIVE_MODES[(i + 1) % LIVE_MODES.length];
-      state.liveMode = next.id;
-      setSimMode(state.sim, state.neurons, state.strings, next.id);
-      state.liveShuffleAt = now;
-      setLivePlate();
-      writeHash();
-    }
   }
   if (!state.live && !reduced && !tweening && now - state.lastInput > 4000) {
     const tgt = world.controls.target;
@@ -651,11 +674,15 @@ try {
   state.stories = stories;
   state.lace = lace;
   state.points = buildCloud(neurons, strings, state.color);
-  world.scene.add(state.points);
   if (lace.positions.length) {
     state.laceMesh = makeLace(lace.positions);
-    world.scene.add(state.laceMesh);
   }
+  state.cnsRoot = new THREE.Group();
+  state.cnsRoot.name = "cnsRoot";
+  state.cnsRoot.add(state.points);
+  if (state.laceMesh) state.cnsRoot.add(state.laceMesh);
+  state.cnsRoot.add(overlay.edges, overlay.skeletons, focusCloud);
+  world.scene.add(state.cnsRoot);
   world.cameras = camerasFromCloud(state.points);
   window.addEventListener("hashchange", () => applyHash(parseHash(window.location.hash)));
   const initial = parseHash(window.location.hash);
@@ -676,14 +703,20 @@ try {
   }
   renderLegend();
   renderFilters();
-  document.getElementById("live-modes").innerHTML = LIVE_MODES.map(
-    (m) => `<button type="button" data-mode="${m.id}">${m.title}</button>`
-  ).join("");
-  document.getElementById("live-modes").addEventListener("click", (ev) => {
-    const btn = ev.target.closest("button[data-mode]");
-    if (!btn) return;
-    state.liveShuffle = false;
-    startLive(btn.dataset.mode);
+  const liveModes = document.getElementById("live-modes");
+  liveModes.innerHTML = `
+    <button type="button" data-fruit="grape">Give grape</button>
+    <button type="button" data-fruit="banana">Give banana</button>
+    <button type="button" id="clear-fruit">Clear fruit</button>
+  `;
+  liveModes.addEventListener("click", (ev) => {
+    const btn = ev.target.closest("button[data-fruit]");
+    if (btn) {
+      if (!state.live) startLive();
+      giveFruit(habitat, btn.dataset.fruit);
+      return;
+    }
+    if (ev.target.id === "clear-fruit") clearFruit(habitat);
   });
   tourBtnsEl.innerHTML = stories
     .map((s, i) => `<button type="button" data-story="${s.id}">${i + 1} ${s.title}</button>`)

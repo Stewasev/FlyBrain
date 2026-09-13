@@ -104,7 +104,7 @@ function makeHair() {
   return new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 40, 35, 8, false), mat);
 }
 
-function makeHouseFly() {
+export function makeHouseFly() {
   const g = new THREE.Group();
   const body = new THREE.MeshStandardMaterial({ color: 0x1a1a1c, roughness: 0.7, metalness: 0.15 });
   const eye = new THREE.MeshStandardMaterial({ color: 0x8a1c14, roughness: 0.35, metalness: 0.05 });
