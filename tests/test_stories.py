@@ -19,7 +19,57 @@ def test_resolve_story_adds_body_ids():
     resolved = resolve_story(story, records)
     assert resolved["steps"][0]["bodyIds"] == [5]
     assert resolved["steps"][1]["bodyIds"] == [7]
+    assert resolved["steps"][0]["skeletonIds"] == [5]
     assert skeleton_ids([resolved], cap=400) == [5, 7]
+
+
+def test_skeleton_sample_spreads_subset():
+    records = [
+        {
+            "id": i,
+            "type": "x",
+            "superclass": "cb_intrinsic",
+            "subclass": "",
+            "dimorphism": "male-specific",
+            "fruDsx": "",
+            "hasSoma": 1,
+            "x": float(i),
+            "y": 0.0,
+            "z": 0.0,
+        }
+        for i in range(20)
+    ]
+    story = {
+        "id": "dimorphism",
+        "steps": [
+            {
+                "id": "male",
+                "select": {"dimorphism": ["male-specific"]},
+                "showSkeletons": True,
+                "skeletonSample": 4,
+            }
+        ],
+    }
+    resolved = resolve_story(story, records)
+    assert len(resolved["steps"][0]["bodyIds"]) == 20
+    skel = resolved["steps"][0]["skeletonIds"]
+    assert len(skel) == 4
+    assert set(skel) <= set(resolved["steps"][0]["bodyIds"])
+    assert skeleton_ids([resolved], cap=400) == skel
+
+
+def test_stain_only_step_has_no_body_ids():
+    records = [
+        {"id": 1, "type": "pC1_1a", "superclass": "cb_intrinsic", "subclass": "", "dimorphism": "male-specific", "fruDsx": "fru_high"},
+    ]
+    story = {
+        "id": "dimorphism",
+        "steps": [{"id": "wash", "select": {"stainOnly": True}, "showSkeletons": False}],
+    }
+    resolved = resolve_story(story, records)
+    assert resolved["steps"][0]["bodyIds"] == []
+    assert resolved["steps"][0]["stainOnly"] is True
+    assert skeleton_ids([resolved], cap=400) == []
 
 
 def test_skeleton_cap_drops_from_largest_step():

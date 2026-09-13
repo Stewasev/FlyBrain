@@ -1,0 +1,70 @@
+{
+  "id": "dimorphism",
+  "title": "Dimorphism",
+  "subtitle": "Male-specific, shared-but-different, isomorphic",
+  "steps": [
+    {
+      "id": "wash",
+      "title": "Sex is a stain, not a second brain",
+      "narration": "Most of this CNS is isomorphic — same types as the female. Gold is male-specific. Rust is sexually dimorphic: the type exists in both sexes, wired differently here. Everything else stays mute.",
+      "camera": "whole",
+      "color": "dimorphism",
+      "select": { "stainOnly": true },
+      "showSkeletons": false,
+      "showPartners": false
+    },
+    {
+      "id": "male",
+      "title": "Male-specific cells",
+      "narration": "About 1,250 neurons with no female counterpart in this annotation. Most sit in the central brain. This is the circuit the male CNS was built to see.",
+      "camera": "brain",
+      "color": "dimorphism",
+      "select": { "dimorphism": ["male-specific"] },
+      "skeletonSample": 28,
+      "showSkeletons": true,
+      "showPartners": false
+    },
+    {
+      "id": "shared",
+      "title": "Shared but different",
+      "narration": "Sexually dimorphic types exist in both sexes. Here their numbers, shape, or partners changed. The paper's 114 dimorphic types live in this gold-rust scatter.",
+      "camera": "brain",
+      "color": "dimorphism",
+      "select": { "dimorphism": ["sexually dimorphic"] },
+      "skeletonSample": 28,
+      "showSkeletons": true,
+      "showPartners": false
+    },
+    {
+      "id": "fru",
+      "title": "fruitless",
+      "narration": "High fruitless expression marks many courtship cells. It is a genetic handle, not a synonym for male-specific — some fru cells are isomorphic.",
+      "camera": "whole",
+      "color": "fruDsx",
+      "select": { "fruDsx": ["fru_high"], "sample": 40 },
+      "showSkeletons": true,
+      "showPartners": false
+    },
+    {
+      "id": "dsx",
+      "title": "doublesex",
+      "narration": "doublesex and fru/dsx coexpression. Fewer cells than fruitless, often closer to the sexual dimorphism labels.",
+      "camera": "brain",
+      "color": "fruDsx",
+      "select": { "fruDsx": ["dsx_high", "coexpress_high"] },
+      "skeletonSample": 24,
+      "showSkeletons": true,
+      "showPartners": false
+    },
+    {
+      "id": "descend",
+      "title": "Dimorphic commands",
+      "narration": "A handful of descending neurons are themselves male-specific or dimorphic: pIP10, aSP22, DNp13, and DNg02. They are how a male-specific brain talks to a body.",
+      "camera": "whole",
+      "color": "dimorphism",
+      "select": { "typeExact": ["pIP10", "aSP22", "DNp13", "DNg02_a"] },
+      "showSkeletons": true,
+      "showPartners": false
+    }
+  ]
+}

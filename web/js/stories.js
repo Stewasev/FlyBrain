@@ -4,6 +4,7 @@ export function stepNeurons(step) {
 
 export function formatStep(story, index) {
   const step = story.steps[index];
+  const stainOnly = Boolean(step.stainOnly) || Boolean(step.select && step.select.stainOnly);
   return {
     story,
     index,
@@ -13,7 +14,8 @@ export function formatStep(story, index) {
     narration: step.narration,
     camera: step.camera || "whole",
     color: step.color || "superclass",
-    focus: stepNeurons(step),
-    skeletonIds: step.showSkeletons ? step.bodyIds || [] : [],
+    stainOnly,
+    focus: stainOnly ? null : stepNeurons(step),
+    skeletonIds: step.showSkeletons ? step.skeletonIds || step.bodyIds || [] : [],
   };
 }

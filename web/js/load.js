@@ -68,7 +68,7 @@ export async function loadPartners(onProgress) {
 }
 
 export async function loadStories() {
-  const names = ["courtship", "walking", "vision"];
+  const names = ["courtship", "walking", "vision", "dimorphism"];
   const stories = [];
   for (const name of names) {
     const resp = await fetchOk(`stories/${name}.json`);

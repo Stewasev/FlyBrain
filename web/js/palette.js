@@ -91,9 +91,11 @@ export function legendFor(mode, strings) {
       .map((k) => ({ label: k, color: `#${NT[k].toString(16).padStart(6, "0")}` }));
   }
   if (mode === "dimorphism") {
-    return Object.keys(DIMORPH)
+    const named = Object.keys(DIMORPH)
       .filter((k) => k)
       .map((k) => ({ label: k, color: `#${DIMORPH[k].toString(16).padStart(6, "0")}` }));
+    named.push({ label: "isomorphic / unlabeled", color: "#3a362e" });
+    return named;
   }
   if (mode === "fruDsx") {
     return Object.keys(FRU)

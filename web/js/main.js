@@ -23,6 +23,7 @@ import {
   setPartnerLines,
   setSkeletonFloats,
 } from "./select.js";
+import { parseHash, serializeHash } from "./hash.js";
 import { formatStep } from "./stories.js";
 
 const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -155,14 +156,56 @@ function markTourButtons() {
   playBtn.textContent = state.playing ? "Pause" : "Play";
 }
 
+function writeHash() {
+  const next = serializeHash({
+    tour: state.tour ? state.tour.id : null,
+    step: state.tour ? state.tourIndex : null,
+    id: state.selected ? state.selected.id : null,
+    color: state.color,
+  });
+  const url = new URL(window.location.href);
+  const want = next.replace(/^#/, "");
+  if (url.hash.replace(/^#/, "") === want) return;
+  url.hash = want;
+  history.replaceState(null, "", url);
+}
+
+function applyHash(h) {
+  if (h.color) {
+    state.color = h.color;
+    document.getElementById("color").value = h.color;
+    renderLegend();
+  }
+  if (h.tour) {
+    const story = state.stories.find((s) => s.id === h.tour);
+    if (story) {
+      state.tour = story;
+      const max = story.steps.length - 1;
+      state.tourIndex = Math.max(0, Math.min(max, h.step || 0));
+      applyTour();
+      return;
+    }
+  }
+  if (h.id) {
+    const n = state.byId.get(h.id);
+    if (n) {
+      selectNeuron(n);
+      return;
+    }
+  }
+  paint();
+  writeHash();
+}
+
 function setPlate(view, focusedCount) {
   if (!view) {
     plate.hidden = true;
     return;
   }
   plate.hidden = false;
+  const count = view.stainOnly ? "whole CNS" : `${focusedCount.toLocaleString()} cells`;
   document.getElementById("plate-kicker").textContent =
-    `${view.story.title}  ·  ${view.index + 1} of ${view.story.steps.length}  ·  ${focusedCount.toLocaleString()} cells`;
+    `${view.story.title}  ·  ${view.index + 1} of ${view.story.steps.length}  ·  ${count}`;
   document.getElementById("plate-title").textContent = view.title;
   document.getElementById("plate-copy").textContent = view.narration;
   document.getElementById("plate-beats").innerHTML = view.story.steps
@@ -192,10 +235,12 @@ function applyTour() {
   state.selected = null;
   document.getElementById("color").value = view.color;
   renderLegend();
-  const focused = [...view.focus].map((id) => state.byId.get(id)).filter((n) => n && n.hasSoma);
+  const focused = view.focus
+    ? [...view.focus].map((id) => state.byId.get(id)).filter((n) => n && n.hasSoma)
+    : [];
   flyTo(focused.length ? focused : state.points.userData.soma);
   setPartnerLines(overlay, null, null, state.byId);
-  setLaceDim(state.laceMesh, true);
+  setLaceDim(state.laceMesh, !view.stainOnly);
   updateFocusCloud(focusCloud, focused.slice(0, 4000), state.strings, state.color);
   setPlate(view, focused.length);
   renderInspector();
@@ -203,6 +248,7 @@ function applyTour() {
   paint();
   showArbors(view.skeletonIds);
   state.playAt = performance.now();
+  writeHash();
 }
 
 function exitTour() {
@@ -252,6 +298,7 @@ function selectNeuron(n) {
   paint();
   renderInspector();
   showArbors(n ? [n.id] : []);
+  writeHash();
 }
 
 function search(q) {
@@ -297,6 +344,7 @@ document.getElementById("color").addEventListener("change", (ev) => {
   renderLegend();
   paint();
   if (state.tour) applyTour();
+  else writeHash();
 });
 filtersEl.addEventListener("click", (ev) => {
   const chip = ev.target.closest(".chip");
@@ -329,6 +377,7 @@ window.addEventListener("keydown", (ev) => {
   else if (ev.key === "1") startTour("courtship");
   else if (ev.key === "2") startTour("walking");
   else if (ev.key === "3") startTour("vision");
+  else if (ev.key === "4") startTour("dimorphism");
   else if (ev.key === "/") {
     ev.preventDefault();
     document.getElementById("search").focus();
@@ -407,11 +456,22 @@ try {
     world.scene.add(state.laceMesh);
   }
   world.cameras = camerasFromCloud(state.points);
-  const intro = focusPose(state.points.userData.soma);
-  if (intro) {
-    world.camera.position.copy(intro.pos).multiplyScalar(1.35);
-    world.controls.target.copy(intro.target);
-    tweenTo(camAnim, world.camera, world.controls, intro, 2200, reduced);
+  window.addEventListener("hashchange", () => applyHash(parseHash(window.location.hash)));
+  const initial = parseHash(window.location.hash);
+  if (initial.tour || initial.id) {
+    applyHash(initial);
+  } else {
+    if (initial.color) {
+      state.color = initial.color;
+      document.getElementById("color").value = initial.color;
+    }
+    const intro = focusPose(state.points.userData.soma);
+    if (intro) {
+      world.camera.position.copy(intro.pos).multiplyScalar(1.35);
+      world.controls.target.copy(intro.target);
+      tweenTo(camAnim, world.camera, world.controls, intro, 2200, reduced);
+    }
+    writeHash();
   }
   renderLegend();
   renderFilters();
