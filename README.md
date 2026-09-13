@@ -19,7 +19,7 @@ Data: [male-cns.janelia.org](https://male-cns.janelia.org) · CC-BY · Berg et a
 
 That starts a local server and opens http://127.0.0.1:8000/ — no bake, no npm. You need [Python 3](https://www.python.org/downloads/) on PATH (Windows installer: tick **Add python.exe to PATH**). Ctrl+C or close the window to stop.
 
-The address bar is the share link. Examples: `#t=dimorphism&s=1` (male-specific cells), `#id=12781&c=fruDsx` (one neuron, fru/dsx stain).
+The address bar is the share link. **Copy link** copies it. Examples: `#t=dimorphism&s=1` (male-specific cells), `#type=pC1_1a` (every soma of that type), `#id=12781&c=fruDsx` (one neuron). Add `?embed=1` to hide the logbook.
 
 Or by hand from the repo root:
 
@@ -55,6 +55,12 @@ python bake.py --skeletons
 
 `data/runtime/skeletons/` stays local. The site reads `lace.bin` (indexed arbors), `neurons.json.gz`, `partners.bin`, and `stories/`.
 
+Blender (optional):
+
+```
+blender --background --python blender/import_atlas.py -- --stain dimorphism --save blender/MaleCNS.blend --render blender/dimorphism.png
+```
+
 ## Layout
 
 | Path | What |
@@ -65,6 +71,8 @@ python bake.py --skeletons
 | `stories/` | Tour scripts (source) |
 | `atlas/` | Bake library |
 | `blender/import_atlas.py` | Blender twin |
+| `blender/MaleCNS.blend` | Saved scene (dimorphism stain) |
+| `blender/dimorphism.png` | Ortho still |
 
 ## Credit
 

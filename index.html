@@ -43,10 +43,11 @@
       <button type="button" id="play">Play</button>
       <button type="button" id="next">Next</button>
       <button type="button" id="clear">Exit</button>
+      <button type="button" id="copy">Copy link</button>
     </div>
     <h2>Find</h2>
-    <input type="search" id="search" placeholder="type or bodyId" autocomplete="off" list="type-hints" />
-    <datalist id="type-hints"></datalist>
+    <input type="search" id="search" placeholder="pC1, MDN, bodyId" autocomplete="off" />
+    <ul class="hits" id="hits" hidden></ul>
     <h2>Stain</h2>
     <select id="color">
       <option value="superclass">superclass</option>
@@ -67,7 +68,7 @@
   </aside>
   <p class="credit">Berg et al., Cell 2026 · FlyEM / Cambridge / MRC LMB / Google Research · data CC-BY</p>
   <div id="scale"><i></i><span id="scale-label">50 µm</span></div>
-  <p class="keys">drag · scroll · click · 1–4 tours · space plays · arrows step</p>
+  <p class="keys">drag · scroll · click · 1–4 tours · space plays · arrows step · / find</p>
   <script type="module" src="web/js/main.js"></script>
 </body>
 </html>

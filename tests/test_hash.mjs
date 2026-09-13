@@ -1,19 +1,25 @@
 import assert from "node:assert/strict";
 import { parseHash, serializeHash } from "../web/js/hash.js";
 
-assert.deepEqual(parseHash(""), { tour: null, step: null, id: null, color: null });
+assert.deepEqual(parseHash(""), { tour: null, step: null, id: null, color: null, type: null, embed: false });
 assert.deepEqual(parseHash("#t=dimorphism&s=2"), {
   tour: "dimorphism",
   step: 2,
   id: null,
   color: null,
+  type: null,
+  embed: false,
 });
 assert.deepEqual(parseHash("#id=12781&c=fruDsx"), {
   tour: null,
   step: null,
   id: 12781,
   color: "fruDsx",
+  type: null,
+  embed: false,
 });
+assert.equal(parseHash("#type=pC1_1a").type, "pC1_1a");
+assert.equal(serializeHash({ type: "pC1_1a" }), "#type=pC1_1a");
 assert.equal(parseHash("#c=nope").color, null);
 
 assert.equal(serializeHash({}), "");

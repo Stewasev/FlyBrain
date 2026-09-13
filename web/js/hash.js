@@ -7,6 +7,8 @@ export function parseHash(hash) {
   const stepRaw = params.get("s");
   const idRaw = params.get("id");
   const color = params.get("c");
+  const type = params.get("type");
+  const embed = params.get("embed") === "1";
   const step = stepRaw === null || stepRaw === "" ? null : Number(stepRaw);
   const id = idRaw === null || idRaw === "" ? null : Number(idRaw);
   return {
@@ -14,14 +16,18 @@ export function parseHash(hash) {
     step: Number.isFinite(step) ? step : null,
     id: Number.isFinite(id) ? id : null,
     color: COLORS.has(color) ? color : null,
+    type: type || null,
+    embed,
   };
 }
 
-export function serializeHash({ tour = null, step = null, id = null, color = null } = {}) {
+export function serializeHash({ tour = null, step = null, id = null, color = null, type = null } = {}) {
   const params = new URLSearchParams();
   if (tour) {
     params.set("t", tour);
     if (step != null && Number.isFinite(Number(step))) params.set("s", String(step));
+  } else if (type) {
+    params.set("type", type);
   }
   if (id) params.set("id", String(id));
   if (color && color !== "superclass" && COLORS.has(color)) params.set("c", color);

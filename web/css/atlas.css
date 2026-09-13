@@ -297,6 +297,61 @@ button.active {
   color: var(--gold);
 }
 
+.hits {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  max-height: 220px;
+  overflow: auto;
+  border: 1px solid var(--line);
+}
+
+.hits[hidden] { display: none; }
+
+.hits li {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 8px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  color: var(--ink);
+  border-bottom: 1px solid var(--line);
+}
+
+.hits li:last-child { border-bottom: none; }
+
+.hits li:hover, .hits li:focus {
+  background: #2a241c;
+  outline: none;
+}
+
+.hits .n {
+  font-family: "Fragment Mono", monospace;
+  color: var(--gold);
+  flex: 0 0 auto;
+}
+
+.hits .empty { color: var(--mute); cursor: default; }
+
+body.embed .logbook,
+body.embed .keys,
+body.embed .specimen {
+  display: none;
+}
+
+body.embed #plate {
+  left: 18px;
+}
+
+body.embed #scale {
+  right: 18px;
+}
+
+body.embed .credit {
+  max-width: 70vw;
+}
+
 .credit {
   position: absolute;
   left: 26px;

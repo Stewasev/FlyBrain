@@ -24,6 +24,7 @@ import {
   setSkeletonFloats,
 } from "./select.js";
 import { parseHash, serializeHash } from "./hash.js";
+import { neuronsOfType, searchCatalog } from "./search.js";
 import { formatStep } from "./stories.js";
 
 const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -37,6 +38,11 @@ const filtersEl = document.getElementById("filters");
 const tourBtnsEl = document.getElementById("tour-btns");
 const plate = document.getElementById("plate");
 const playBtn = document.getElementById("play");
+const hitsEl = document.getElementById("hits");
+const searchEl = document.getElementById("search");
+const copyBtn = document.getElementById("copy");
+const embed = new URLSearchParams(window.location.search).get("embed") === "1";
+if (embed) document.body.classList.add("embed");
 
 const world = createScene(canvas);
 const overlay = makeOverlay();
@@ -59,6 +65,7 @@ const state = {
   color: "superclass",
   hidden: new Set(),
   selected: null,
+  typeName: null,
   tour: null,
   tourIndex: 0,
   playing: false,
@@ -101,7 +108,9 @@ function paint() {
   const tour = state.tour ? formatStep(state.tour, state.tourIndex) : null;
   let focus = null;
   if (tour) focus = tour.focus;
-  else if (state.selected) {
+  else if (state.typeName) {
+    focus = new Set(neuronsOfType(state.neurons, state.strings, state.typeName).map((n) => n.id));
+  } else if (state.selected) {
     focus = new Set([state.selected.id]);
     const row = state.partners?.rows.get(state.selected.id);
     if (row) {
@@ -119,6 +128,11 @@ function paint() {
 function renderInspector() {
   const n = state.selected;
   if (!n) {
+    if (state.typeName) {
+      const cells = neuronsOfType(state.neurons, state.strings, state.typeName);
+      inspectorEl.textContent = `${state.typeName} · ${cells.length.toLocaleString()} somas`;
+      return;
+    }
     inspectorEl.textContent = state.tour ? "Touring. Click Exit to poke cells." : "Click a soma, or start a tour.";
     return;
   }
@@ -162,6 +176,7 @@ function writeHash() {
     step: state.tour ? state.tourIndex : null,
     id: state.selected ? state.selected.id : null,
     color: state.color,
+    type: state.tour ? null : state.typeName,
   });
   const url = new URL(window.location.href);
   const want = next.replace(/^#/, "");
@@ -185,6 +200,10 @@ function applyHash(h) {
       applyTour();
       return;
     }
+  }
+  if (h.type) {
+    focusType(h.type);
+    return;
   }
   if (h.id) {
     const n = state.byId.get(h.id);
@@ -233,6 +252,7 @@ function applyTour() {
   const view = formatStep(state.tour, state.tourIndex);
   state.color = view.color;
   state.selected = null;
+  state.typeName = null;
   document.getElementById("color").value = view.color;
   renderLegend();
   const focused = view.focus
@@ -262,6 +282,8 @@ function exitTour() {
 }
 
 function startTour(id, index = 0) {
+  state.typeName = null;
+  hitsEl.hidden = true;
   state.tour = state.stories.find((s) => s.id === id) || state.stories[0];
   state.tourIndex = index;
   applyTour();
@@ -285,8 +307,10 @@ function selectNeuron(n) {
   state.selected = n;
   if (n) {
     state.tour = null;
+    state.typeName = null;
     state.playing = false;
     plate.hidden = true;
+    hitsEl.hidden = true;
     markTourButtons();
     setLaceDim(state.laceMesh, true);
     updateFocusCloud(focusCloud, [n], state.strings, state.color);
@@ -301,19 +325,49 @@ function selectNeuron(n) {
   writeHash();
 }
 
-function search(q) {
-  q = q.trim();
-  if (!q) return;
-  if (/^\d+$/.test(q)) {
-    const n = state.byId.get(Number(q));
-    if (n) selectNeuron(n);
+function renderHits(result) {
+  if (result.exact) {
+    hitsEl.hidden = true;
+    selectNeuron(result.exact);
     return;
   }
-  const ql = q.toLowerCase();
-  const hit = state.neurons.find(
-    (n) => n.hasSoma && (state.strings.type[n.type] || "").toLowerCase().includes(ql)
-  );
-  if (hit) selectNeuron(hit);
+  if (!result.types.length) {
+    hitsEl.innerHTML = `<li class="empty">No types match.</li>`;
+    hitsEl.hidden = false;
+    return;
+  }
+  hitsEl.innerHTML = result.types
+    .map(
+      (t) =>
+        `<li data-type="${t.type.replace(/"/g, "")}" tabindex="0"><span>${t.type}</span><span class="n">${t.soma}</span></li>`
+    )
+    .join("");
+  hitsEl.hidden = false;
+}
+
+function focusType(typeName) {
+  const cells = neuronsOfType(state.neurons, state.strings, typeName);
+  if (!cells.length) return;
+  state.tour = null;
+  state.playing = false;
+  state.selected = null;
+  state.typeName = typeName;
+  plate.hidden = true;
+  hitsEl.hidden = true;
+  markTourButtons();
+  flyTo(cells);
+  setPartnerLines(overlay, null, null, state.byId);
+  setLaceDim(state.laceMesh, true);
+  updateFocusCloud(focusCloud, cells.slice(0, 4000), state.strings, state.color);
+  paint();
+  renderInspector();
+  showArbors(cells.slice(0, 80).map((n) => n.id));
+  writeHash();
+}
+
+function search(q) {
+  const result = searchCatalog(state.neurons, state.strings, q);
+  renderHits(result);
 }
 
 function bumpInput() {
@@ -336,8 +390,28 @@ canvas.addEventListener("pointermove", (ev) => {
   if (ev.buttons) bumpInput();
 });
 
-document.getElementById("search").addEventListener("keydown", (ev) => {
-  if (ev.key === "Enter") search(ev.target.value);
+searchEl.addEventListener("input", () => {
+  const q = searchEl.value.trim();
+  if (!q) {
+    hitsEl.hidden = true;
+    return;
+  }
+  search(q);
+});
+searchEl.addEventListener("keydown", (ev) => {
+  if (ev.key === "Enter") {
+    const first = hitsEl.querySelector("li[data-type]");
+    if (first) focusType(first.dataset.type);
+    else search(searchEl.value);
+  } else if (ev.key === "Escape") {
+    hitsEl.hidden = true;
+    searchEl.blur();
+    ev.stopPropagation();
+  }
+});
+hitsEl.addEventListener("click", (ev) => {
+  const li = ev.target.closest("li[data-type]");
+  if (li) focusType(li.dataset.type);
 });
 document.getElementById("color").addEventListener("change", (ev) => {
   state.color = ev.target.value;
@@ -365,6 +439,21 @@ document.getElementById("prev").addEventListener("click", () => stepTour(-1));
 document.getElementById("next").addEventListener("click", () => stepTour(1));
 document.getElementById("clear").addEventListener("click", exitTour);
 playBtn.addEventListener("click", togglePlay);
+copyBtn.addEventListener("click", async () => {
+  writeHash();
+  const url = window.location.href;
+  try {
+    await navigator.clipboard.writeText(url);
+    copyBtn.textContent = "Copied";
+  } catch {
+    window.prompt("Copy this link", url);
+    copyBtn.textContent = "Copy link";
+    return;
+  }
+  setTimeout(() => {
+    copyBtn.textContent = "Copy link";
+  }, 1400);
+});
 
 window.addEventListener("keydown", (ev) => {
   if (ev.target && ["INPUT", "SELECT", "TEXTAREA"].includes(ev.target.tagName)) return;
@@ -458,7 +547,7 @@ try {
   world.cameras = camerasFromCloud(state.points);
   window.addEventListener("hashchange", () => applyHash(parseHash(window.location.hash)));
   const initial = parseHash(window.location.hash);
-  if (initial.tour || initial.id) {
+  if (initial.tour || initial.id || initial.type) {
     applyHash(initial);
   } else {
     if (initial.color) {
@@ -475,17 +564,6 @@ try {
   }
   renderLegend();
   renderFilters();
-  const typeCount = new Map();
-  for (const n of neurons) {
-    const t = strings.type[n.type];
-    if (t) typeCount.set(t, (typeCount.get(t) || 0) + 1);
-  }
-  const hints = [...typeCount.entries()]
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 80)
-    .map(([t]) => `<option value="${t}">`)
-    .join("");
-  document.getElementById("type-hints").innerHTML = hints;
   tourBtnsEl.innerHTML = stories
     .map((s, i) => `<button type="button" data-story="${s.id}">${i + 1} ${s.title}</button>`)
     .join("");
