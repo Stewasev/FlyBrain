@@ -104,31 +104,6 @@ function makeHair() {
   return new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 40, 35, 8, false), mat);
 }
 
-function makePaperclip() {
-  const g = new THREE.Group();
-  const wire = 500;
-  const pts = [];
-  const path = [
-    [0, 0, 0],
-    [0, 0, 28000],
-    [0, 3500, 33000],
-    [0, 7000, 28000],
-    [0, 7000, 2000],
-    [0, 3500, -2000],
-    [0, 0, 3000],
-    [0, 0, 24000],
-  ];
-  for (const p of path) pts.push(new THREE.Vector3(p[0], p[1], p[2]));
-  const curve = new THREE.CatmullRomCurve3(pts);
-  const mat = new THREE.MeshStandardMaterial({
-    color: 0xc0c4c8,
-    metalness: 0.9,
-    roughness: 0.25,
-  });
-  g.add(new THREE.Mesh(new THREE.TubeGeometry(curve, 80, wire, 8, false), mat));
-  return g;
-}
-
 function makeHouseFly() {
   const g = new THREE.Group();
   const body = new THREE.MeshStandardMaterial({ color: 0x1a1a1c, roughness: 0.7, metalness: 0.15 });
@@ -200,10 +175,10 @@ export async function fillScaleObjects(root) {
     loadTex(new URL("quarter-reverse.png", models).href),
   ]);
 
-  const hair = wrap(makeHair(), 120, 400, "human hair  ~70 µm", 1200, new THREE.Vector3(0, 180, 1250));
+  const hair = wrap(makeHair(), 120, 400, "human hair  ~70 µm", 1800, new THREE.Vector3(0, 140, 1250));
   hair.position.set(0, -420, -2200);
 
-  const fly = wrap(makeHouseFly(), 1500, 2800, "house fly  ~7 mm", 2800, new THREE.Vector3(0, 2800, 0));
+  const fly = wrap(makeHouseFly(), 1500, 2800, "house fly  ~7 mm", 5200, new THREE.Vector3(0, 3200, 0));
   fly.position.set(0, -900, 6500);
 
   const dime = wrap(
@@ -211,8 +186,8 @@ export async function fillScaleObjects(root) {
     4000,
     7000,
     "dime  17.9 mm",
-    3200,
-    new THREE.Vector3(0, 11000, 0)
+    13400,
+    new THREE.Vector3(0, 10800, 0)
   );
   dime.position.set(0, 0, 22000);
 
@@ -221,15 +196,12 @@ export async function fillScaleObjects(root) {
     8000,
     13000,
     "quarter  24.3 mm",
-    4000,
+    18200,
     new THREE.Vector3(0, 14500, 0)
   );
   quarter.position.set(0, 0, 50000);
 
-  const clip = wrap(makePaperclip(), 14000, 22000, "paperclip  ~33 mm", 4800, new THREE.Vector3(0, 8000, 16500));
-  clip.position.set(0, -4000, 78000);
-
-  root.add(hair, fly, dime, quarter, clip);
+  root.add(hair, fly, dime, quarter);
 }
 
 export function addScaleLights(scene) {
