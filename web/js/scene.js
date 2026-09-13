@@ -45,20 +45,13 @@ export function createScene(canvas) {
   return { renderer, scene, camera, controls, scale, resize, cameras: CAMERAS };
 }
 
-function lineMat(opacity = 0.65) {
+function lineMat(opacity = 0.7) {
   return new THREE.LineBasicMaterial({
-    color: 0xc4b49a,
+    color: 0xd4c4a0,
     transparent: true,
     opacity,
     depthWrite: false,
   });
-}
-
-function wireBox(size) {
-  const e = new THREE.EdgesGeometry(new THREE.BoxGeometry(size, size, size));
-  const mesh = new THREE.LineSegments(e, lineMat());
-  mesh.userData.baseOpacity = 0.7;
-  return mesh;
 }
 
 function makeLabel(text, width = 420) {
@@ -67,70 +60,144 @@ function makeLabel(text, width = 420) {
   c.height = 96;
   const g = c.getContext("2d");
   g.clearRect(0, 0, 512, 96);
-  g.font = "56px 'Fragment Mono', ui-monospace, monospace";
+  g.font = "52px 'Fragment Mono', ui-monospace, monospace";
   g.fillStyle = "#e6dcc8";
   g.textBaseline = "middle";
-  g.fillText(text, 16, 48);
+  g.fillText(text, 12, 48);
   const tex = new THREE.CanvasTexture(c);
   tex.needsUpdate = true;
   const sprite = new THREE.Sprite(
     new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false })
   );
   sprite.scale.set(width, width * (96 / 512), 1);
-  sprite.userData.baseOpacity = 0.9;
+  sprite.userData.baseOpacity = 0.92;
   return sprite;
 }
 
-function ghostFly() {
-  const g = new THREE.Group();
-  const ink = lineMat(0.5);
-  const addWire = (geo, x, y, z, sx = 1, sy = 1, sz = 1) => {
-    const m = new THREE.LineSegments(new THREE.EdgesGeometry(geo, 25), ink);
-    m.position.set(x, y, z);
-    m.scale.set(sx, sy, sz);
-    m.userData.baseOpacity = 0.5;
-    g.add(m);
-  };
-  addWire(new THREE.SphereGeometry(320, 10, 8), 0, 40, -980);
-  addWire(new THREE.SphereGeometry(430, 10, 8), 0, 20, -280);
-  addWire(new THREE.SphereGeometry(380, 10, 8), 0, -10, 520, 0.95, 0.85, 1.7);
-  const wing = new THREE.PlaneGeometry(1600, 620);
-  const wingMat = new THREE.MeshBasicMaterial({
-    color: 0xc4b49a,
-    transparent: true,
-    opacity: 0.12,
-    side: THREE.DoubleSide,
-    depthWrite: false,
-  });
-  const w1 = new THREE.Mesh(wing, wingMat);
-  w1.position.set(180, 220, -200);
-  w1.rotation.set(-0.7, 0.15, 0.55);
-  w1.userData.baseOpacity = 0.14;
-  const w2 = w1.clone();
-  w2.material = wingMat.clone();
-  w2.position.x = -180;
-  w2.rotation.z = -0.55;
-  w2.userData.baseOpacity = 0.14;
-  g.add(w1, w2);
-  const legs = [];
-  const hip = [
-    [0, -180, -420],
-    [0, -200, -280],
-    [0, -180, -80],
-  ];
-  for (const [hx, hy, hz] of hip) {
-    for (const side of [-1, 1]) {
-      legs.push(hx, hy, hz, side * 280, hy - 420, hz + 80);
-      legs.push(side * 280, hy - 420, hz + 80, side * 340, hy - 620, hz + 220);
-    }
+function polylineYZ(points, closed = false) {
+  const pos = [];
+  const n = points.length;
+  const last = closed ? n : n - 1;
+  for (let i = 0; i < last; i++) {
+    const a = points[i];
+    const b = points[(i + 1) % n];
+    pos.push(0, a[1], a[0], 0, b[1], b[0]);
   }
-  const legGeo = new THREE.BufferGeometry();
-  legGeo.setAttribute("position", new THREE.Float32BufferAttribute(legs, 3));
-  const legMesh = new THREE.LineSegments(legGeo, lineMat(0.4));
-  legMesh.userData.baseOpacity = 0.4;
-  g.add(legMesh);
-  const label = makeLabel("adult  ~2.5 mm", 900);
-  label.position.set(0, 700, 200);
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+  const mesh = new THREE.LineSegments(geo, lineMat());
+  mesh.userData.baseOpacity = 0.75;
+  return mesh;
+}
+
+function squareYZ(size) {
+  const h = size / 2;
+  return polylineYZ(
+    [
+      [-h, -h],
+      [h, -h],
+      [h, h],
+      [-h, h],
+    ],
+    true
+  );
+}
+
+function micrometer() {
+  const g = new THREE.Group();
+  const y = 0;
+  const pos = [0, y, 0, 0, y, 1000];
+  for (let i = 0; i <= 10; i++) {
+    const z = i * 100;
+    const h = i === 0 || i === 10 ? 70 : i === 5 ? 50 : 28;
+    pos.push(0, y, z, 0, y + h, z);
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+  const bar = new THREE.LineSegments(geo, lineMat(0.85));
+  bar.userData.baseOpacity = 0.85;
+  g.add(bar);
+  const label = makeLabel("1 mm", 320);
+  label.position.set(0, 130, 500);
+  g.add(label);
+  return g;
+}
+
+function flyOutline() {
+  const g = new THREE.Group();
+  const body = [
+    [-1080, 20],
+    [-1020, 110],
+    [-920, 250],
+    [-800, 310],
+    [-700, 240],
+    [-640, 90],
+    [-600, 50],
+    [-520, 210],
+    [-340, 430],
+    [-120, 400],
+    [40, 220],
+    [180, 150],
+    [420, 170],
+    [780, 90],
+    [1100, -30],
+    [1320, -110],
+    [1460, -40],
+    [1480, 20],
+    [1400, -160],
+    [1100, -260],
+    [720, -300],
+    [360, -290],
+    [80, -260],
+    [-160, -240],
+    [-420, -220],
+    [-640, -170],
+    [-860, -130],
+    [-1020, -50],
+    [-1080, 20],
+  ];
+  const wing = [
+    [-80, 360],
+    [80, 720],
+    [360, 920],
+    [720, 840],
+    [900, 560],
+    [620, 280],
+    [220, 180],
+  ];
+  const antenna = [
+    [-900, 240],
+    [-1080, 420],
+    [-1040, 560],
+  ];
+  const legs = [
+    [-420, -220],
+    [-480, -520],
+    [-440, -760],
+    [-200, -230],
+    [-160, -540],
+    [-80, -780],
+    [60, -255],
+    [120, -530],
+    [200, -760],
+  ];
+  g.add(polylineYZ(body, true));
+  g.add(polylineYZ(wing));
+  g.add(polylineYZ(antenna));
+  const legPos = [];
+  for (let i = 0; i < 3; i++) {
+    const a = legs[i * 3];
+    const b = legs[i * 3 + 1];
+    const c = legs[i * 3 + 2];
+    legPos.push(0, a[1], a[0], 0, b[1], b[0], 0, b[1], b[0], 0, c[1], c[0]);
+  }
+  const lg = new THREE.BufferGeometry();
+  lg.setAttribute("position", new THREE.Float32BufferAttribute(legPos, 3));
+  const lm = new THREE.LineSegments(lg, lineMat(0.55));
+  lm.userData.baseOpacity = 0.55;
+  g.add(lm);
+  const label = makeLabel("adult Drosophila  ~2.5 mm", 1100);
+  label.position.set(0, -980, 200);
   g.add(label);
   return g;
 }
@@ -140,32 +207,35 @@ export function buildScaleRefs() {
   root.name = "scaleRefs";
 
   const um100 = new THREE.Group();
-  um100.add(wireBox(100));
-  const l100 = makeLabel("100 µm", 280);
+  um100.add(squareYZ(100));
+  const l100 = makeLabel("100 µm", 260);
   l100.position.set(0, 90, 0);
   um100.add(l100);
-  um100.position.set(520, -320, -180);
-  um100.userData.near = 380;
-  um100.userData.far = 900;
+  um100.position.set(0, -300, -320);
+  um100.userData.near = 220;
+  um100.userData.far = 520;
   um100.visible = false;
 
-  const mm1 = new THREE.Group();
-  mm1.add(wireBox(1000));
-  const l1 = makeLabel("1 mm", 360);
-  l1.position.set(0, 620, 0);
-  mm1.add(l1);
-  mm1.position.set(980, -120, 520);
-  mm1.userData.near = 700;
-  mm1.userData.far = 1600;
-  mm1.visible = false;
+  const mm = new THREE.Group();
+  mm.add(micrometer());
+  const cube = squareYZ(1000);
+  cube.position.set(0, 500, 1500);
+  mm.add(cube);
+  const lmm = makeLabel("1 mm cube", 420);
+  lmm.position.set(0, 1100, 1500);
+  mm.add(lmm);
+  mm.position.set(0, -390, -200);
+  mm.userData.near = 450;
+  mm.userData.far = 850;
+  mm.visible = false;
 
-  const fly = ghostFly();
-  fly.position.set(1680, 0, 80);
-  fly.userData.near = 1100;
-  fly.userData.far = 2600;
+  const fly = flyOutline();
+  fly.position.set(0, -820, 260);
+  fly.userData.near = 800;
+  fly.userData.far = 1250;
   fly.visible = false;
 
-  root.add(um100, mm1, fly);
+  root.add(um100, mm, fly);
   return root;
 }
 
