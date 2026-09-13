@@ -29,7 +29,7 @@ python -m http.server 8000 --bind 127.0.0.1
 
 | Key | Action |
 |---|---|
-| drag / scroll | orbit, zoom |
+| drag / scroll | orbit, zoom — keep going out for hair, house fly, dime, quarter, paperclip |
 | click | select a soma |
 | `1` `2` `3` `4` | courtship, walking, vision, dimorphism |
 | `L` | Live tab (simulated spikes on the real graph) |

@@ -18,7 +18,7 @@ export function createScene(canvas) {
   const scene = new THREE.Scene();
   scene.fog = null;
 
-  const camera = new THREE.PerspectiveCamera(45, 1, 0.5, 40000);
+  const camera = new THREE.PerspectiveCamera(45, 1, 0.5, 200000);
   camera.position.set(...CAMERAS.whole.pos);
 
   const controls = new OrbitControls(camera, canvas);
@@ -27,9 +27,10 @@ export function createScene(canvas) {
   controls.target.set(0, 0, 0);
   controls.rotateSpeed = 0.6;
   controls.zoomSpeed = 0.85;
-  controls.maxDistance = 18000;
+  controls.maxDistance = 90000;
 
-  const scale = buildScaleRefs();
+  const scale = new THREE.Group();
+  scale.name = "scaleRefs";
   scene.add(scale);
 
   function resize() {
@@ -45,200 +46,6 @@ export function createScene(canvas) {
   return { renderer, scene, camera, controls, scale, resize, cameras: CAMERAS };
 }
 
-function lineMat(opacity = 0.7) {
-  return new THREE.LineBasicMaterial({
-    color: 0xd4c4a0,
-    transparent: true,
-    opacity,
-    depthWrite: false,
-  });
-}
-
-function makeLabel(text, width = 420) {
-  const c = document.createElement("canvas");
-  c.width = 512;
-  c.height = 96;
-  const g = c.getContext("2d");
-  g.clearRect(0, 0, 512, 96);
-  g.font = "52px 'Fragment Mono', ui-monospace, monospace";
-  g.fillStyle = "#e6dcc8";
-  g.textBaseline = "middle";
-  g.fillText(text, 12, 48);
-  const tex = new THREE.CanvasTexture(c);
-  tex.needsUpdate = true;
-  const sprite = new THREE.Sprite(
-    new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false })
-  );
-  sprite.scale.set(width, width * (96 / 512), 1);
-  sprite.userData.baseOpacity = 0.92;
-  return sprite;
-}
-
-function polylineYZ(points, closed = false) {
-  const pos = [];
-  const n = points.length;
-  const last = closed ? n : n - 1;
-  for (let i = 0; i < last; i++) {
-    const a = points[i];
-    const b = points[(i + 1) % n];
-    pos.push(0, a[1], a[0], 0, b[1], b[0]);
-  }
-  const geo = new THREE.BufferGeometry();
-  geo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
-  const mesh = new THREE.LineSegments(geo, lineMat());
-  mesh.userData.baseOpacity = 0.75;
-  return mesh;
-}
-
-function squareYZ(size) {
-  const h = size / 2;
-  return polylineYZ(
-    [
-      [-h, -h],
-      [h, -h],
-      [h, h],
-      [-h, h],
-    ],
-    true
-  );
-}
-
-function micrometer() {
-  const g = new THREE.Group();
-  const y = 0;
-  const pos = [0, y, 0, 0, y, 1000];
-  for (let i = 0; i <= 10; i++) {
-    const z = i * 100;
-    const h = i === 0 || i === 10 ? 70 : i === 5 ? 50 : 28;
-    pos.push(0, y, z, 0, y + h, z);
-  }
-  const geo = new THREE.BufferGeometry();
-  geo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
-  const bar = new THREE.LineSegments(geo, lineMat(0.85));
-  bar.userData.baseOpacity = 0.85;
-  g.add(bar);
-  const label = makeLabel("1 mm", 320);
-  label.position.set(0, 130, 500);
-  g.add(label);
-  return g;
-}
-
-function flyOutline() {
-  const g = new THREE.Group();
-  const body = [
-    [-1080, 20],
-    [-1020, 110],
-    [-920, 250],
-    [-800, 310],
-    [-700, 240],
-    [-640, 90],
-    [-600, 50],
-    [-520, 210],
-    [-340, 430],
-    [-120, 400],
-    [40, 220],
-    [180, 150],
-    [420, 170],
-    [780, 90],
-    [1100, -30],
-    [1320, -110],
-    [1460, -40],
-    [1480, 20],
-    [1400, -160],
-    [1100, -260],
-    [720, -300],
-    [360, -290],
-    [80, -260],
-    [-160, -240],
-    [-420, -220],
-    [-640, -170],
-    [-860, -130],
-    [-1020, -50],
-    [-1080, 20],
-  ];
-  const wing = [
-    [-80, 360],
-    [80, 720],
-    [360, 920],
-    [720, 840],
-    [900, 560],
-    [620, 280],
-    [220, 180],
-  ];
-  const antenna = [
-    [-900, 240],
-    [-1080, 420],
-    [-1040, 560],
-  ];
-  const legs = [
-    [-420, -220],
-    [-480, -520],
-    [-440, -760],
-    [-200, -230],
-    [-160, -540],
-    [-80, -780],
-    [60, -255],
-    [120, -530],
-    [200, -760],
-  ];
-  g.add(polylineYZ(body, true));
-  g.add(polylineYZ(wing));
-  g.add(polylineYZ(antenna));
-  const legPos = [];
-  for (let i = 0; i < 3; i++) {
-    const a = legs[i * 3];
-    const b = legs[i * 3 + 1];
-    const c = legs[i * 3 + 2];
-    legPos.push(0, a[1], a[0], 0, b[1], b[0], 0, b[1], b[0], 0, c[1], c[0]);
-  }
-  const lg = new THREE.BufferGeometry();
-  lg.setAttribute("position", new THREE.Float32BufferAttribute(legPos, 3));
-  const lm = new THREE.LineSegments(lg, lineMat(0.55));
-  lm.userData.baseOpacity = 0.55;
-  g.add(lm);
-  const label = makeLabel("adult Drosophila  ~2.5 mm", 1100);
-  label.position.set(0, -980, 200);
-  g.add(label);
-  return g;
-}
-
-export function buildScaleRefs() {
-  const root = new THREE.Group();
-  root.name = "scaleRefs";
-
-  const um100 = new THREE.Group();
-  um100.add(squareYZ(100));
-  const l100 = makeLabel("100 µm", 260);
-  l100.position.set(0, 90, 0);
-  um100.add(l100);
-  um100.position.set(0, -300, -320);
-  um100.userData.near = 220;
-  um100.userData.far = 520;
-  um100.visible = false;
-
-  const mm = new THREE.Group();
-  mm.add(micrometer());
-  const cube = squareYZ(1000);
-  cube.position.set(0, 500, 1500);
-  mm.add(cube);
-  const lmm = makeLabel("1 mm cube", 420);
-  lmm.position.set(0, 1100, 1500);
-  mm.add(lmm);
-  mm.position.set(0, -390, -200);
-  mm.userData.near = 450;
-  mm.userData.far = 850;
-  mm.visible = false;
-
-  const fly = flyOutline();
-  fly.position.set(0, -820, 260);
-  fly.userData.near = 800;
-  fly.userData.far = 1250;
-  fly.visible = false;
-
-  root.add(um100, mm, fly);
-  return root;
-}
-
 function smoothstep(a, b, x) {
   const t = Math.max(0, Math.min(1, (x - a) / Math.max(1e-6, b - a)));
   return t * t * (3 - 2 * t);
@@ -251,9 +58,8 @@ export function updateScaleRefs(group, camera, controls) {
     const fade = smoothstep(child.userData.near || 0, child.userData.far || 1, d);
     child.visible = fade > 0.03;
     child.traverse((obj) => {
-      if (!obj.material || obj.material.opacity == null) return;
-      const base = obj.userData.baseOpacity ?? child.userData.baseOpacity ?? 0.6;
-      obj.material.opacity = base * fade;
+      if (!obj.isSprite || !obj.material) return;
+      obj.material.opacity = (obj.userData.baseOpacity ?? 1) * fade;
     });
   }
 }

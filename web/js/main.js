@@ -29,6 +29,7 @@ import {
 import { parseHash, serializeHash } from "./hash.js";
 import { activityFocus, createSim, hottest, LIVE_MODES, setSimMode, stepSim } from "./live.js";
 import { neuronsOfType, searchCatalog } from "./search.js";
+import { addScaleLights, fillScaleObjects } from "./scale-objects.js";
 import { formatStep } from "./stories.js";
 
 const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -55,6 +56,8 @@ const camAnim = { active: false, dur: 1400 };
 world.scene.add(overlay.edges);
 world.scene.add(overlay.skeletons);
 world.scene.add(focusCloud);
+addScaleLights(world.scene);
+fillScaleObjects(world.scale).catch((err) => console.warn("scale objects", err));
 
 const state = {
   pack: null,
