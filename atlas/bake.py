@@ -88,6 +88,9 @@ def bake_from_records(
             "dimorphism": r.get("dimorphism") or "",
             "fruDsx": r.get("fruDsx") or "",
             "hasSoma": has_soma[-1],
+            "x": xs[-1],
+            "y": ys[-1],
+            "z": zs[-1],
         }
         records.append(rec)
         for key, table in tables.items():

@@ -5,6 +5,7 @@ import {
   buildCloud,
   camerasFromCloud,
   createScene,
+  frameFocus,
   goCamera,
   nearestSoma,
   paintCloud,
@@ -156,18 +157,19 @@ function applyTour() {
   }
   const view = formatStep(state.tour, state.tourIndex);
   state.color = view.color;
+  state.selected = null;
   document.getElementById("color").value = view.color;
   renderLegend();
   narrationEl.textContent = `${view.label} — ${view.title}. ${view.narration}`;
-  goCamera(world.camera, world.controls, view.camera, world.cameras);
-  const first = [...view.focus].map((id) => state.byId.get(id)).find((n) => n && n.hasSoma);
-  if (first) {
-    selectNeuron(first, { fromTour: true });
+  const focused = [...view.focus].map((id) => state.byId.get(id)).filter((n) => n && n.hasSoma);
+  if (focused.length) {
+    frameFocus(world.camera, world.controls, focused);
   } else {
-    state.selected = null;
-    setPartnerLines(overlay, null, null, state.byId);
-    renderInspector();
+    goCamera(world.camera, world.controls, view.camera, world.cameras);
   }
+  setPartnerLines(overlay, null, null, state.byId);
+  inspectorEl.innerHTML = `<div>${focused.length.toLocaleString()} cells with soma</div><div>${view.step.title}</div>`;
+  setStatus(`${view.label} · ${focused.length.toLocaleString()} somas`);
   paint();
   showSkeletons(view.skeletonIds);
 }
@@ -232,6 +234,7 @@ document.getElementById("next").addEventListener("click", () => {
 });
 document.getElementById("clear").addEventListener("click", () => {
   state.tour = null;
+  for (const b of tourBtnsEl.querySelectorAll("button")) b.classList.remove("active");
   selectNeuron(null);
   narrationEl.textContent = "Click a soma. Upstream edges stain cyan, downstream gold.";
 });
@@ -275,6 +278,9 @@ try {
     if (!btn) return;
     state.tour = stories.find((s) => s.id === btn.dataset.story);
     state.tourIndex = 0;
+    for (const b of tourBtnsEl.querySelectorAll("button")) {
+      b.classList.toggle("active", b === btn);
+    }
     applyTour();
   });
   setStatus(`${pack.n.toLocaleString()} traced · ${state.points.userData.soma.length.toLocaleString()} somas`);

@@ -1,36 +1,16 @@
 {
   "id": "walking",
   "title": "Walking",
-  "subtitle": "Leg sense to motor neurons",
+  "subtitle": "Descending drive to leg motor",
   "steps": [
     {
-      "id": "sensors",
-      "title": "Leg sensors",
-      "narration": "Campaniform, chordotonal, and bristle neurons on the legs report load, joint angle, and touch.",
-      "camera": "vnc",
-      "color": "superclass",
-      "select": { "subclass": ["leg", "leg bristle", "campaniform sensilla", "chordotonal organ"] },
-      "showSkeletons": false,
-      "showPartners": false
-    },
-    {
       "id": "vnc",
-      "title": "VNC local circuits",
-      "narration": "Most of the walk lives in the ventral nerve cord: local interneurons stitch sensors to motor neurons.",
+      "title": "The walking machine",
+      "narration": "Most of the walk lives in the ventral nerve cord. Local interneurons here stitch incoming reports to motor neurons. (Leg sensory somas sit out in the body, so they are not in this volume.)",
       "camera": "vnc",
       "color": "superclass",
       "select": { "superclass": ["vnc_intrinsic"] },
       "showSkeletons": false,
-      "showPartners": false
-    },
-    {
-      "id": "descend",
-      "title": "Descending drive",
-      "narration": "MDN (moonwalker) and a handful of DNg cells send brain goals into the VNC.",
-      "camera": "whole",
-      "color": "superclass",
-      "select": { "typeExact": ["MDN", "DNg08", "DNg02_a", "DNg03"] },
-      "showSkeletons": true,
       "showPartners": false
     },
     {
@@ -40,6 +20,26 @@
       "camera": "vnc",
       "color": "superclass",
       "select": { "typeExact": ["Ti flexor MN", "Ti extensor MN", "Tr flexor MN", "Tr extensor MN"] },
+      "showSkeletons": true,
+      "showPartners": false
+    },
+    {
+      "id": "descend",
+      "title": "Descending drive",
+      "narration": "MDN (moonwalker) and DNg cells send brain goals down the neck into that VNC machine.",
+      "camera": "whole",
+      "color": "superclass",
+      "select": { "typeExact": ["MDN", "DNg08", "DNg02_a", "DNg03"] },
+      "showSkeletons": true,
+      "showPartners": false
+    },
+    {
+      "id": "ascend",
+      "title": "Ascending reports",
+      "narration": "Ascending neurons carry what the VNC computed back up to the brain.",
+      "camera": "whole",
+      "color": "superclass",
+      "select": { "superclass": ["ascending_neuron"], "sample": 24 },
       "showSkeletons": true,
       "showPartners": false
     }

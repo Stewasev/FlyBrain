@@ -22,9 +22,26 @@ def test_type_exact_or_prefix():
     assert ids == [14, 20]
 
 
-def test_sample_keeps_lowest_ids():
-    ids = match_neurons(RECORDS, {"typePrefix": ["T4", "pC1_"], "sample": 2})
-    assert ids == [10, 13]
+def test_sample_spreads_in_space():
+    recs = [
+        {
+            "id": i,
+            "type": "T4a",
+            "superclass": "ol_intrinsic",
+            "subclass": "",
+            "dimorphism": "",
+            "fruDsx": "",
+            "hasSoma": 1,
+            "x": float(i),
+            "y": 0.0,
+            "z": 0.0,
+        }
+        for i in range(100)
+    ]
+    ids = match_neurons(recs, {"typePrefix": ["T4"], "sample": 4})
+    assert len(ids) == 4
+    assert min(ids) == 0 or max(ids) == 99
+    assert max(ids) - min(ids) >= 50
 
 
 def test_subclass_filter():

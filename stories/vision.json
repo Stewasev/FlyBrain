@@ -6,7 +6,7 @@
     {
       "id": "t4t5",
       "title": "T4 / T5 motion",
-      "narration": "Thousands of T4 and T5 cells tile the optic lobe and detect motion. A handful of skeletons stand in for the lattice.",
+      "narration": "T4 and T5 cells tile both optic lobes and detect motion. This is a spatial sample of the lattice, not the first 16 IDs.",
       "camera": "optic",
       "color": "superclass",
       "select": { "typePrefix": ["T4", "T5"], "sample": 16 },
@@ -25,8 +25,8 @@
     },
     {
       "id": "widefield",
-      "title": "Widefield projection",
-      "narration": "LC6 and LC11 take optic-lobe features into the central brain — the jump from retina-adjacent cells to behavior.",
+      "title": "Into the central brain",
+      "narration": "LC6 and LC11 take optic-lobe features into the central brain.",
       "camera": "brain",
       "color": "superclass",
       "select": { "typeExact": ["LC6", "LC11"], "sample": 16 },

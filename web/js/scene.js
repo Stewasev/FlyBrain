@@ -163,6 +163,24 @@ export function goCamera(camera, controls, name, cameras = CAMERAS) {
   controls.update();
 }
 
+export function frameFocus(camera, controls, neurons) {
+  const pts = neurons.filter((n) => n && n.hasSoma);
+  if (!pts.length) return;
+  const box = new THREE.Box3();
+  const v = new THREE.Vector3();
+  for (const n of pts) {
+    box.expandByPoint(v.set(n.x, n.y, n.z));
+  }
+  const c = box.getCenter(new THREE.Vector3());
+  const size = box.getSize(new THREE.Vector3());
+  const r = Math.max(size.x, size.y, size.z, 28);
+  const dist = Math.max(r * 2.5, 80);
+  const dir = new THREE.Vector3(1, 0.16, 0.1).normalize();
+  camera.position.copy(c).addScaledVector(dir, dist);
+  controls.target.copy(c);
+  controls.update();
+}
+
 export function camerasFromCloud(points) {
   points.geometry.computeBoundingBox();
   const b = points.geometry.boundingBox;
@@ -174,22 +192,31 @@ export function camerasFromCloud(points) {
   const L = Math.max(size.x, size.y, size.z);
   const off = L * 1.15;
   const side = L * 0.35;
+  const coord = (n) => (long === "x" ? n.x : long === "z" ? n.z : n.y);
+  const mid = long === "x" ? c.x : long === "z" ? c.z : c.y;
+  let nLo = 0;
+  let nHi = 0;
+  for (const n of points.userData.soma || []) {
+    if (coord(n) < mid) nLo += 1;
+    else nHi += 1;
+  }
+  const brainSign = nLo >= nHi ? -1 : 1;
   const along = (sign) => {
     if (long === "x") return [c.x + sign * size.x * 0.28, c.y, c.z];
     if (long === "z") return [c.x, c.y, c.z + sign * size.z * 0.28];
     return [c.x, c.y + sign * size.y * 0.28, c.z];
   };
-  const posAlong = (sign, extra = 0) => {
+  const posAlong = (sign) => {
     const t = along(sign);
-    if (long === "y") return [t[0] + side, t[1], t[2] + off * 0.25 + extra];
-    if (long === "x") return [t[0], t[1] + side, t[2] + off * 0.25 + extra];
-    return [t[0] + side, t[1] + off * 0.25 + extra, t[2]];
+    if (long === "y") return [t[0] + side, t[1], t[2] + off * 0.25];
+    if (long === "x") return [t[0], t[1] + side, t[2] + off * 0.25];
+    return [t[0] + side, t[1] + off * 0.25, t[2]];
   };
   return {
     whole: { pos: [c.x + off, c.y, c.z], look: [c.x, c.y, c.z] },
-    brain: { pos: posAlong(1), look: along(1) },
-    vnc: { pos: posAlong(-1), look: along(-1) },
-    optic: { pos: [c.x + off * 0.55, c.y + side, c.z + off * 0.2], look: along(1) },
-    courtship: { pos: [c.x + side, c.y + side, c.z + off * 0.55], look: along(1) },
+    brain: { pos: posAlong(brainSign), look: along(brainSign) },
+    vnc: { pos: posAlong(-brainSign), look: along(-brainSign) },
+    optic: { pos: [c.x + off * 0.7, c.y, along(brainSign)[2]], look: along(brainSign) },
+    courtship: { pos: posAlong(brainSign), look: along(brainSign) },
   };
 }

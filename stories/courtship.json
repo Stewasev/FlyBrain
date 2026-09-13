@@ -4,19 +4,19 @@
   "subtitle": "P1 command to song motor",
   "steps": [
     {
-      "id": "fru",
-      "title": "Sex-determination genes",
-      "narration": "Neurons with high fruitless or doublesex expression mark the courtship nervous system across brain and VNC.",
-      "camera": "whole",
-      "color": "fruDsx",
-      "select": { "fruDsx": ["fru_high", "dsx_high", "coexpress_high"] },
+      "id": "male",
+      "title": "Male-specific cells",
+      "narration": "1,258 neurons labeled male-specific. Most sit in the central brain — this is the sex-specific circuit this connectome was built to see.",
+      "camera": "brain",
+      "color": "dimorphism",
+      "select": { "dimorphism": ["male-specific"] },
       "showSkeletons": false,
       "showPartners": false
     },
     {
       "id": "pc1",
       "title": "P1 command cluster",
-      "narration": "pC1 cells are the male courtship command cluster. They sit in the central brain and drive the rest of this pathway.",
+      "narration": "pC1 cells are the male courtship command cluster in the central brain. They drive the rest of this pathway.",
       "camera": "brain",
       "color": "fruDsx",
       "select": { "typePrefix": ["pC1_"] },
@@ -46,7 +46,7 @@
     {
       "id": "song",
       "title": "Song motor",
-      "narration": "vPR6 and TN1c neurons in the ventral nerve cord pattern courtship song.",
+      "narration": "vPR6 and TN1c in the ventral nerve cord pattern courtship song.",
       "camera": "vnc",
       "color": "superclass",
       "select": { "typeExact": ["vPR6"], "typePrefix": ["TN1c_"] },
@@ -56,7 +56,7 @@
     {
       "id": "lc10",
       "title": "Visual tracking",
-      "narration": "LC10 visual projection neurons track a moving fly and feed the same courtship cluster.",
+      "narration": "LC10 visual projection neurons track a moving fly and feed the same courtship cluster. Sampled across both optic lobes.",
       "camera": "optic",
       "color": "superclass",
       "select": { "typePrefix": ["LC10"], "sample": 24 },
