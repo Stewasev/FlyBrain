@@ -6,15 +6,24 @@ A local (and GitHub Pages) 3D atlas of the adult male *Drosophila* central nervo
 
 Data: [male-cns.janelia.org](https://male-cns.janelia.org) · CC-BY · Berg et al., *Cell* 2026.
 
-## Open it
+## Play
 
-Serve the **repo root** (not `web/`):
+**Online:** https://stewasev.github.io/FlyBrain/
+
+**On your machine** (after `git clone https://github.com/Stewasev/FlyBrain.git`):
+
+| You | Do this |
+|---|---|
+| Windows | Double-click `play.bat` |
+| macOS / Linux | `chmod +x play.sh` once, then `./play.sh` |
+
+That starts a local server and opens http://127.0.0.1:8000/ — no bake, no npm. You need [Python 3](https://www.python.org/downloads/) on PATH (Windows installer: tick **Add python.exe to PATH**). Ctrl+C or close the window to stop.
+
+Or by hand from the repo root:
 
 ```
-python -m http.server 8000
+python -m http.server 8000 --bind 127.0.0.1
 ```
-
-Then http://localhost:8000/
 
 | Key | Action |
 |---|---|
@@ -28,15 +37,9 @@ Then http://localhost:8000/
 
 ## GitHub Pages
 
-1. Create a GitHub repo and push this folder (`git remote add origin …` then `git push -u origin master`).
-2. **Settings → Pages → Build and deployment**
-   - Source: **Deploy from a branch**
-   - Branch: `master` (or `main`), folder: **/ (root)**
-3. Wait a minute. The atlas is at `https://<user>.github.io/<repo>/`
+This repo is already live at https://stewasev.github.io/FlyBrain/ (branch `main`, folder `/`). First load is ~85 MB.
 
-The first load pulls ~85 MB (neurons + connectome + arbors). That is expected.
-
-Do **not** enable Jekyll processing; `.nojekyll` is already in the root.
+To host your own fork: **Settings → Pages → Deploy from a branch → `main` / root**. Keep `.nojekyll` in the root.
 
 ## Rebuild the runtime pack
 
