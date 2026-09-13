@@ -149,6 +149,15 @@ def bake_from_records(
         skel_ids = skeleton_ids(resolved_all, cap=400)
         n_ok = download_many(skel_ids, skel_dir, center)
         print(f"  downloaded {n_ok}/{len(skel_ids)} skeletons")
+        keep = {int(i) for i in skel_ids}
+        for path in skel_dir.glob("*.swc"):
+            try:
+                body_id = int(path.stem)
+            except ValueError:
+                path.unlink()
+                continue
+            if body_id not in keep:
+                path.unlink()
         n_lace = pack_lace(skel_dir, out_dir / "lace.bin")
         print(f"  lace from {n_lace} skeletons")
 
