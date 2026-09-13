@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Male CNS atlas — Drosophila melanogaster ♂</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Fragment+Mono&family=Fraunces:ital,opsz,wght@0,9..144,360;0,9..144,500;1,9..144,360&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/web/css/atlas.css" />
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.170.0/build/three.module.js",
+      "three/addons/": "https://unpkg.com/three@0.170.0/examples/jsm/"
+    }
+  }
+  </script>
+</head>
+<body>
+  <canvas id="view"></canvas>
+  <header class="specimen">
+    <h1><em>Drosophila melanogaster</em><span class="sex">♂</span></h1>
+    <p>Male CNS connectome · v1.0 · 8 nm</p>
+  </header>
+  <aside class="logbook" id="logbook">
+    <h2>Find</h2>
+    <input type="search" id="search" placeholder="type or bodyId" autocomplete="off" />
+    <h2>Stain</h2>
+    <select id="color">
+      <option value="superclass">superclass</option>
+      <option value="nt">neurotransmitter</option>
+      <option value="dimorphism">dimorphism</option>
+      <option value="fruDsx">fru / dsx</option>
+    </select>
+    <div class="legend" id="legend"></div>
+    <h2>Hide</h2>
+    <div class="chips" id="filters"></div>
+    <h2>Tours</h2>
+    <div class="row" id="tour-btns"></div>
+    <div class="row" style="margin-top:6px">
+      <button type="button" id="prev">Prev</button>
+      <button type="button" id="next">Next</button>
+      <button type="button" id="clear">Clear tour</button>
+    </div>
+    <p class="narration" id="narration">Click a soma. Upstream edges stain cyan, downstream gold.</p>
+    <h2>Cell</h2>
+    <div class="inspector" id="inspector">No cell selected.</div>
+  </aside>
+  <p class="credit">Berg et al. 2026 · FlyEM / Cambridge / MRC LMB / Google Research · CC-BY · soma XYZ from Male CNS v1.0</p>
+  <p class="status" id="status">loading pack…</p>
+  <script type="module" src="/web/js/main.js"></script>
+</body>
+</html>

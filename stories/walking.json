@@ -1,0 +1,47 @@
+{
+  "id": "walking",
+  "title": "Walking",
+  "subtitle": "Leg sense to motor neurons",
+  "steps": [
+    {
+      "id": "sensors",
+      "title": "Leg sensors",
+      "narration": "Campaniform, chordotonal, and bristle neurons on the legs report load, joint angle, and touch.",
+      "camera": "vnc",
+      "color": "superclass",
+      "select": { "subclass": ["leg", "leg bristle", "campaniform sensilla", "chordotonal organ"] },
+      "showSkeletons": false,
+      "showPartners": false
+    },
+    {
+      "id": "vnc",
+      "title": "VNC local circuits",
+      "narration": "Most of the walk lives in the ventral nerve cord: local interneurons stitch sensors to motor neurons.",
+      "camera": "vnc",
+      "color": "superclass",
+      "select": { "superclass": ["vnc_intrinsic"] },
+      "showSkeletons": false,
+      "showPartners": false
+    },
+    {
+      "id": "descend",
+      "title": "Descending drive",
+      "narration": "MDN (moonwalker) and a handful of DNg cells send brain goals into the VNC.",
+      "camera": "whole",
+      "color": "superclass",
+      "select": { "typeExact": ["MDN", "DNg08", "DNg02_a", "DNg03"] },
+      "showSkeletons": true,
+      "showPartners": false
+    },
+    {
+      "id": "motor",
+      "title": "Leg motor neurons",
+      "narration": "Tibia and trochanter flexors and extensors are the muscles that actually step.",
+      "camera": "vnc",
+      "color": "superclass",
+      "select": { "typeExact": ["Ti flexor MN", "Ti extensor MN", "Tr flexor MN", "Tr extensor MN"] },
+      "showSkeletons": true,
+      "showPartners": false
+    }
+  ]
+}

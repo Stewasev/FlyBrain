@@ -1,0 +1,67 @@
+{
+  "id": "courtship",
+  "title": "Courtship",
+  "subtitle": "P1 command to song motor",
+  "steps": [
+    {
+      "id": "fru",
+      "title": "Sex-determination genes",
+      "narration": "Neurons with high fruitless or doublesex expression mark the courtship nervous system across brain and VNC.",
+      "camera": "whole",
+      "color": "fruDsx",
+      "select": { "fruDsx": ["fru_high", "dsx_high", "coexpress_high"] },
+      "showSkeletons": false,
+      "showPartners": false
+    },
+    {
+      "id": "pc1",
+      "title": "P1 command cluster",
+      "narration": "pC1 cells are the male courtship command cluster. They sit in the central brain and drive the rest of this pathway.",
+      "camera": "brain",
+      "color": "fruDsx",
+      "select": { "typePrefix": ["pC1_"] },
+      "showSkeletons": true,
+      "showPartners": false
+    },
+    {
+      "id": "mal",
+      "title": "mAL",
+      "narration": "Male-specific mAL neurons couple the command cluster to downstream courtship circuitry.",
+      "camera": "brain",
+      "color": "dimorphism",
+      "select": { "typePrefix": ["mAL"] },
+      "showSkeletons": true,
+      "showPartners": false
+    },
+    {
+      "id": "dns",
+      "title": "Descending courtship",
+      "narration": "pIP10, aSP22, and DNp13 carry courtship and song commands out of the brain, down the neck, into the VNC.",
+      "camera": "whole",
+      "color": "superclass",
+      "select": { "typeExact": ["pIP10", "aSP22", "DNp13"] },
+      "showSkeletons": true,
+      "showPartners": false
+    },
+    {
+      "id": "song",
+      "title": "Song motor",
+      "narration": "vPR6 and TN1c neurons in the ventral nerve cord pattern courtship song.",
+      "camera": "vnc",
+      "color": "superclass",
+      "select": { "typeExact": ["vPR6"], "typePrefix": ["TN1c_"] },
+      "showSkeletons": true,
+      "showPartners": false
+    },
+    {
+      "id": "lc10",
+      "title": "Visual tracking",
+      "narration": "LC10 visual projection neurons track a moving fly and feed the same courtship cluster.",
+      "camera": "optic",
+      "color": "superclass",
+      "select": { "typePrefix": ["LC10"], "sample": 24 },
+      "showSkeletons": true,
+      "showPartners": false
+    }
+  ]
+}
