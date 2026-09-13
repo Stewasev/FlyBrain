@@ -16,9 +16,9 @@ export function createScene(canvas) {
   renderer.setClearColor(VOID, 1);
 
   const scene = new THREE.Scene();
-  scene.fog = new THREE.FogExp2(VOID, 0.0016);
+  scene.fog = new THREE.FogExp2(VOID, 0.00035);
 
-  const camera = new THREE.PerspectiveCamera(45, 1, 0.5, 4000);
+  const camera = new THREE.PerspectiveCamera(45, 1, 0.5, 8000);
   camera.position.set(...CAMERAS.whole.pos);
 
   const controls = new OrbitControls(camera, canvas);
@@ -81,12 +81,14 @@ export function buildCloud(neurons, strings, mode) {
   geo.setAttribute("position", new THREE.BufferAttribute(positions, 3));
   geo.setAttribute("color", new THREE.BufferAttribute(colors, 3));
   const mat = new THREE.PointsMaterial({
-    size: 1.6,
+    size: 9,
+    map: somaSprite(),
     vertexColors: true,
     sizeAttenuation: true,
     transparent: true,
-    opacity: 0.92,
+    opacity: 0.95,
     depthWrite: false,
+    alphaTest: 0.08,
   });
   const points = new THREE.Points(geo, mat);
   points.userData.soma = soma;
@@ -107,7 +109,7 @@ export function paintCloud(points, neurons, strings, mode, opts) {
     }
     let c = colorFor(mode, n, strings);
     if (dimUnfocused && focus && !focus.has(n.id)) {
-      c = [c[0] * 0.12, c[1] * 0.12, c[2] * 0.12];
+      c = [c[0] * 0.38, c[1] * 0.38, c[2] * 0.38];
     }
     colors.setXYZ(i, c[0], c[1], c[2]);
   }
@@ -117,7 +119,22 @@ export function paintCloud(points, neurons, strings, mode, opts) {
 const _pt = new THREE.Vector3();
 const _closest = new THREE.Vector3();
 
-export function nearestSoma(ray, points, threshold = 4) {
+function somaSprite() {
+  const c = document.createElement("canvas");
+  c.width = c.height = 64;
+  const g = c.getContext("2d");
+  const grd = g.createRadialGradient(32, 32, 0, 32, 32, 30);
+  grd.addColorStop(0, "rgba(255,255,255,1)");
+  grd.addColorStop(0.35, "rgba(255,255,255,0.95)");
+  grd.addColorStop(1, "rgba(255,255,255,0)");
+  g.fillStyle = grd;
+  g.fillRect(0, 0, 64, 64);
+  const tex = new THREE.CanvasTexture(c);
+  tex.needsUpdate = true;
+  return tex;
+}
+
+export function nearestSoma(ray, points, threshold = 10) {
   const pos = points.geometry.attributes.position;
   const soma = points.userData.soma;
   const origin = ray.origin;

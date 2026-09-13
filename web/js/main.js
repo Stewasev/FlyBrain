@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { legendFor } from "./palette.js";
-import { loadNeurons, loadPartners, loadStories, loadSwc } from "./load.js";
+import { loadLace, loadNeurons, loadPartners, loadStories, loadSwc } from "./load.js";
 import {
   buildCloud,
   camerasFromCloud,
@@ -9,7 +9,14 @@ import {
   nearestSoma,
   paintCloud,
 } from "./scene.js";
-import { makeOverlay, partnerEntries, setPartnerLines, setSkeletonLines } from "./select.js";
+import {
+  makeLace,
+  makeOverlay,
+  partnerEntries,
+  setOverlayResolution,
+  setPartnerLines,
+  setSkeletonLines,
+} from "./select.js";
 import { formatStep } from "./stories.js";
 
 const canvas = document.getElementById("view");
@@ -186,7 +193,7 @@ canvas.addEventListener("pointerdown", (ev) => {
   state.mouse.x = ((ev.clientX - rect.left) / rect.width) * 2 - 1;
   state.mouse.y = -((ev.clientY - rect.top) / rect.height) * 2 + 1;
   state.raycaster.setFromCamera(state.mouse, world.camera);
-  const hit = nearestSoma(state.raycaster.ray, state.points, 5);
+  const hit = nearestSoma(state.raycaster.ray, state.points, 12);
   if (hit) selectNeuron(hit);
 });
 
@@ -230,6 +237,7 @@ document.getElementById("clear").addEventListener("click", () => {
 });
 
 function tick() {
+  setOverlayResolution(overlay, canvas.clientWidth, canvas.clientHeight);
   world.controls.update();
   world.renderer.render(world.scene, world.camera);
   requestAnimationFrame(tick);
@@ -237,10 +245,14 @@ function tick() {
 tick();
 
 try {
-  const [{ pack, neurons, byId, strings }, partners, stories] = await Promise.all([
+  const [{ pack, neurons, byId, strings }, partners, stories, lacePos] = await Promise.all([
     loadNeurons(),
     loadPartners(),
     loadStories(),
+    loadLace().catch((err) => {
+      console.warn(err);
+      return new Float32Array();
+    }),
   ]);
   state.pack = pack;
   state.neurons = neurons;
@@ -250,6 +262,7 @@ try {
   state.stories = stories;
   state.points = buildCloud(neurons, strings, state.color);
   world.scene.add(state.points);
+  if (lacePos.length) world.scene.add(makeLace(lacePos));
   world.cameras = camerasFromCloud(state.points);
   goCamera(world.camera, world.controls, "whole", world.cameras);
   renderLegend();

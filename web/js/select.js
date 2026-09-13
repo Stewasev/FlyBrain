@@ -1,31 +1,68 @@
 import * as THREE from "three";
+import { LineMaterial } from "three/addons/lines/LineMaterial.js";
+import { LineSegments2 } from "three/addons/lines/LineSegments2.js";
+import { LineSegmentsGeometry } from "three/addons/lines/LineSegmentsGeometry.js";
 import { TOKENS } from "./palette.js";
 
 function hexColor(hex) {
   return new THREE.Color(hex);
 }
 
+export function makeLace(positions) {
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+  const mat = new THREE.LineBasicMaterial({
+    color: 0xd9c59a,
+    transparent: true,
+    opacity: 0.38,
+    depthWrite: false,
+  });
+  const lines = new THREE.LineSegments(geo, mat);
+  lines.frustumCulled = false;
+  return lines;
+}
+
 export function makeOverlay() {
-  const edges = new THREE.LineSegments(
-    new THREE.BufferGeometry(),
-    new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.85 })
-  );
-  const skeletons = new THREE.LineSegments(
-    new THREE.BufferGeometry(),
-    new THREE.LineBasicMaterial({ color: TOKENS.ink, transparent: true, opacity: 0.7 })
-  );
-  return { edges, skeletons };
+  const edgeMat = new LineMaterial({
+    vertexColors: true,
+    linewidth: 2.4,
+    transparent: true,
+    opacity: 0.95,
+    dashed: false,
+    worldUnits: false,
+  });
+  const skelMat = new LineMaterial({
+    color: TOKENS.ink,
+    linewidth: 1.8,
+    transparent: true,
+    opacity: 0.95,
+    dashed: false,
+    worldUnits: false,
+  });
+  const edges = new LineSegments2(new LineSegmentsGeometry(), edgeMat);
+  const skeletons = new LineSegments2(new LineSegmentsGeometry(), skelMat);
+  edges.frustumCulled = false;
+  skeletons.frustumCulled = false;
+  edges.visible = false;
+  skeletons.visible = false;
+  return { edges, skeletons, edgeMat, skelMat };
+}
+
+export function setOverlayResolution(overlay, width, height) {
+  overlay.edgeMat.resolution.set(width, height);
+  overlay.skelMat.resolution.set(width, height);
 }
 
 export function setPartnerLines(overlay, selected, partners, byId) {
-  const geo = overlay.edges.geometry;
   if (!selected || !partners) {
-    geo.setAttribute("position", new THREE.Float32BufferAttribute([], 3));
-    geo.setAttribute("color", new THREE.Float32BufferAttribute([], 3));
+    overlay.edges.visible = false;
     return;
   }
   const row = partners.rows.get(selected.id);
-  if (!row) return;
+  if (!row) {
+    overlay.edges.visible = false;
+    return;
+  }
   const pos = [];
   const col = [];
   const up = hexColor(TOKENS.up);
@@ -38,16 +75,36 @@ export function setPartnerLines(overlay, selected, partners, byId) {
   };
   for (const id of row.inId) if (id) push(id, up);
   for (const id of row.outId) if (id) push(id, down);
-  geo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
-  geo.setAttribute("color", new THREE.Float32BufferAttribute(col, 3));
+  if (!pos.length) {
+    overlay.edges.visible = false;
+    return;
+  }
+  const geo = new LineSegmentsGeometry();
+  geo.setPositions(pos);
+  geo.setColors(col);
+  overlay.edges.geometry.dispose();
+  overlay.edges.geometry = geo;
+  overlay.edges.visible = true;
 }
 
 export function setSkeletonLines(overlay, segmentsList) {
   const pos = [];
   for (const segs of segmentsList) {
-    for (const p of segs) pos.push(p[0], p[1], p[2]);
+    for (let i = 0; i + 1 < segs.length; i += 2) {
+      const a = segs[i];
+      const b = segs[i + 1];
+      pos.push(a[0], a[1], a[2], b[0], b[1], b[2]);
+    }
   }
-  overlay.skeletons.geometry.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+  if (!pos.length) {
+    overlay.skeletons.visible = false;
+    return;
+  }
+  const geo = new LineSegmentsGeometry();
+  geo.setPositions(pos);
+  overlay.skeletons.geometry.dispose();
+  overlay.skeletons.geometry = geo;
+  overlay.skeletons.visible = true;
 }
 
 export function partnerEntries(selected, partners, byId, strings) {

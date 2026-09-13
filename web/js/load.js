@@ -75,26 +75,36 @@ export async function loadStories() {
   return stories;
 }
 
+export async function loadLace() {
+  const resp = await fetch(`${RUNTIME}/lace.bin`);
+  if (!resp.ok) throw new Error(`lace.bin ${resp.status}`);
+  const buf = await resp.arrayBuffer();
+  const view = new DataView(buf);
+  const magic = String.fromCharCode(view.getUint8(0), view.getUint8(1), view.getUint8(2), view.getUint8(3));
+  if (magic !== "LACE") throw new Error(`bad lace magic ${magic}`);
+  const nSeg = view.getUint32(8, true);
+  return new Float32Array(buf, 12, nSeg * 6);
+}
+
 export async function loadSwc(bodyId) {
   const resp = await fetch(`${RUNTIME}/skeletons/${bodyId}.swc`);
   if (!resp.ok) return null;
   const text = await resp.text();
   const points = new Map();
-  const segments = [];
+  const links = [];
   for (const line of text.split("\n")) {
     const s = line.trim();
     if (!s || s.startsWith("#")) continue;
     const p = s.split(/\s+/);
     if (p.length < 7) continue;
     const n = Number(p[0]);
-    const x = Number(p[2]);
-    const y = Number(p[3]);
-    const z = Number(p[4]);
-    const parent = Number(p[6]);
-    points.set(n, [x, y, z]);
-    if (parent >= 0 && points.has(parent)) {
-      segments.push(points.get(parent), [x, y, z]);
-    }
+    points.set(n, [Number(p[2]), Number(p[3]), Number(p[4])]);
+    links.push([n, Number(p[6])]);
+  }
+  const segments = [];
+  for (const [n, parent] of links) {
+    if (parent < 0 || !points.has(parent) || !points.has(n)) continue;
+    segments.push(points.get(parent), points.get(n));
   }
   return segments;
 }

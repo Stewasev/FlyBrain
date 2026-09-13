@@ -8,6 +8,7 @@ from atlas.coords import apply_center, center_um, voxel_to_um
 from atlas.intern import InternTable
 from atlas.io_pack import write_neurons_gz, write_partners_bin
 from atlas.partners import topk_partners
+from atlas.lace import pack_lace
 from atlas.skeletons import download_many
 from atlas.stories import resolve_story, skeleton_ids
 
@@ -145,6 +146,8 @@ def bake_from_records(
         skel_ids = skeleton_ids(resolved_all, cap=400)
         n_ok = download_many(skel_ids, skel_dir, center)
         print(f"  downloaded {n_ok}/{len(skel_ids)} skeletons")
+        n_lace = pack_lace(skel_dir, out_dir / "lace.bin")
+        print(f"  lace from {n_lace} skeletons")
 
     return BakeResult(
         n=len(ids),
