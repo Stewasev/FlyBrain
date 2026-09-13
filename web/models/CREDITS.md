@@ -4,7 +4,8 @@
 |---|---|---|
 | Roosevelt dime photos | U.S. Mint / Wikimedia Commons (`2015-W proof Roosevelt dime` obverse & reverse) | Public domain (U.S. government work) |
 | Washington quarter photos | U.S. Mint / Wikimedia Commons (`1994-P Washington quarter obverse`; circulated reverse) | Public domain / photo as used |
-| Hair, house-fly meshes | Built in-scene at measured sizes (not scans) | MIT with this repo |
+| Hair, house-fly, Drosophila body | Built in-scene at measured sizes (not CT scans) | MIT with this repo |
+| Fly kinematics | Joint layout and wingstroke inspired by DeepMind/Janelia [flybody](https://github.com/google-deepmind/flybody) (Apache-2.0) and NeuroMechFly — meshes are original, not theirs | Apache-2.0 inspiration |
 
 Sizes used (real-world):
 

@@ -57,4 +57,34 @@ const sim2 = createSim(soma2, partners2);
 bindMotors(sim2, neurons2, strings2);
 const out = closedStep(sim2, { visL: 1, visR: 0, walk: 0.5, feed: 0 });
 assert.ok(sim2.energy[0] > 0 || out.turn !== 0 || out.speed >= 0);
+
+const soma3 = [
+  { id: 1, x: 0, y: 0, z: 0 },
+  { id: 4, x: 0, y: 0, z: 0 },
+  { id: 5, x: 0, y: 0, z: 0 },
+];
+const partners3 = {
+  rows: new Map([
+    [1, { outId: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], outW: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] }],
+    [4, { outId: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], outW: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] }],
+    [5, { outId: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], outW: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] }],
+  ]),
+};
+const neurons3 = [
+  { id: 1, hasSoma: 1, type: 1, superclass: 0, side: 1 },
+  { id: 4, hasSoma: 1, type: 4, superclass: 1, side: 1 },
+  { id: 5, hasSoma: 1, type: 5, superclass: 1, side: 1 },
+];
+const strings3 = {
+  type: ["", "T4a", "Ti flexor MN", "MDN", "DLMn a, b", "TTMn"],
+  superclass: ["ol_intrinsic", "vnc_motor"],
+  side: ["", "left", "right"],
+};
+const sim3 = createSim(soma3, partners3);
+bindMotors(sim3, neurons3, strings3);
+assert.ok(sim3.motors.power.length, "DLM power muscles bound");
+assert.ok(sim3.motors.jump.length, "TTM jump muscle bound");
+const flight = closedStep(sim3, { visL: 0, visR: 0, walk: 0, feed: 0, fly: 1 });
+assert.ok(flight.lift > 0, "flight drive reads out wing power");
+assert.ok(flight.jump > 0, "flight drive reads out the jump muscle");
 console.log("ok");

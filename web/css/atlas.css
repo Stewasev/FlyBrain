@@ -256,6 +256,14 @@ button.active {
   margin: 10px 0 0;
 }
 
+.live-note kbd {
+  font-family: "Fragment Mono", monospace;
+  font-size: 0.78em;
+  color: var(--ink);
+  border: 1px solid #3a342c;
+  padding: 0 0.35em;
+}
+
 .chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
 
 .chip {

@@ -31,7 +31,7 @@ import { bindMotors, closedStep, createSim, hottest, setSimMode, stepSim } from 
 import { neuronsOfType, searchCatalog } from "./search.js";
 import { addScaleLights, fillScaleObjects } from "./scale-objects.js";
 import { formatStep } from "./stories.js";
-import { clearFruit, createWorld, giveFruit, senseWorld, setFlyGhost, tickWorld } from "./world.js";
+import { beginLanding, beginTakeoff, clearFruit, createWorld, giveFruit, senseWorld, setFlyGhost, tickWorld } from "./world.js";
 
 const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 const canvas = document.getElementById("view");
@@ -312,9 +312,12 @@ function showTab(name) {
 
 function setLivePlate(behavior) {
   const copy = {
-    wander: { title: "Walking", narration: "No fruit in range. Descending and motor cells step the VNC." },
+    wander: { title: "Walking", narration: "Tripod gait. Coxa, femur, tibia, tarsus — descending and leg motor cells step the VNC." },
     seek: { title: "Found fruit", narration: "Left/right visual cells see the fruit. Motor neurons walk him there." },
     feed: { title: "Feeding", narration: "Proboscis down. Taste and feeding circuits take over." },
+    takeoff: { title: "Takeoff", narration: "Tergotrochanteral jump, then dorsal longitudinal and dorsoventral power muscles." },
+    fly: { title: "Flight", narration: "Three-degree wingstroke — sweep, flap, twist — with halteres in antiphase. Steering still from this brain." },
+    land: { title: "Landing", narration: "Legs unfold, wings fold over the abdomen, T1–T3 reach for the table." },
   };
   const view = copy[behavior] || copy.wander;
   plate.hidden = false;
@@ -350,9 +353,15 @@ function startLive() {
   updateFocusCloud(focusCloud, [], state.strings, state.color);
   world.scale.visible = false;
   habitat.root.visible = true;
+  habitat.phase = "walk";
+  habitat.airborne = false;
+  habitat.launch = 0;
+  habitat.wantFly = false;
+  habitat.agent.position.y = habitat.standY;
+  habitat.agent.rotation.x = 0;
   if (!habitat.fruits.length) giveFruit(habitat, "grape");
   habitat.agent.add(state.cnsRoot);
-  state.cnsRoot.position.set(0, 80, 200);
+  state.cnsRoot.position.set(0, 40, 80);
   state.cnsRoot.rotation.set(0, 0, 0);
   state.cnsRoot.scale.setScalar(1);
   if (state.points) state.points.material.size = 12;
@@ -586,6 +595,12 @@ window.addEventListener("keydown", (ev) => {
       giveFruit(habitat, Math.random() < 0.5 ? "banana" : "grape");
     }
   }
+  else if (ev.key === "t" || ev.key === "T") {
+    if (state.live) {
+      if (habitat.phase === "fly" || habitat.phase === "takeoff") beginLanding(habitat);
+      else beginTakeoff(habitat, performance.now(), true);
+    }
+  }
   else if (ev.key === "/") {
     ev.preventDefault();
     document.getElementById("search").focus();
@@ -709,6 +724,8 @@ try {
   liveModes.innerHTML = `
     <button type="button" data-fruit="grape">Give grape</button>
     <button type="button" data-fruit="banana">Give banana</button>
+    <button type="button" id="takeoff">Take off</button>
+    <button type="button" id="land">Land</button>
     <button type="button" id="clear-fruit">Clear fruit</button>
   `;
   liveModes.addEventListener("click", (ev) => {
@@ -716,6 +733,15 @@ try {
     if (btn) {
       if (!state.live) startLive();
       giveFruit(habitat, btn.dataset.fruit);
+      return;
+    }
+    if (ev.target.id === "takeoff") {
+      if (!state.live) startLive();
+      beginTakeoff(habitat, performance.now(), true);
+      return;
+    }
+    if (ev.target.id === "land") {
+      beginLanding(habitat);
       return;
     }
     if (ev.target.id === "clear-fruit") clearFruit(habitat);

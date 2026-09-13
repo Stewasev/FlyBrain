@@ -171,6 +171,8 @@ export function bindMotors(sim, neurons, strings) {
   const flexR = [];
   const extL = [];
   const extR = [];
+  const power = [];
+  const jump = [];
   for (const n of neurons) {
     if (!n.hasSoma) continue;
     const i = sim.idToI.get(n.id);
@@ -188,8 +190,10 @@ export function bindMotors(sim, neurons, strings) {
     if (t.includes("flexor MN") && side === "right") flexR.push(i);
     if (t.includes("extensor MN") && side === "left") extL.push(i);
     if (t.includes("extensor MN") && side === "right") extR.push(i);
+    if (t.startsWith("DLMn") || t.startsWith("DVMn") || t === "hDVM MN") power.push(i);
+    if (t === "TTMn" || t === "STTMm" || t === "DNp01" || t === "DNp02") jump.push(i);
   }
-  sim.motors = { visL, visR, dnL, dnR, walk, flexL, flexR, extL, extR };
+  sim.motors = { visL, visR, dnL, dnR, walk, flexL, flexR, extL, extR, power, jump };
 }
 
 function spray(sim, idx, amount) {
@@ -203,7 +207,7 @@ function spray(sim, idx, amount) {
 
 export function closedStep(sim, drive) {
   const m = sim.motors;
-  if (!m) return { speed: 0, turn: 0, flexL: 0, flexR: 0 };
+  if (!m) return { speed: 0, turn: 0, flexL: 0, flexR: 0, lift: 0, jump: 0 };
   spray(sim, m.walk, drive.walk);
   spray(sim, m.visL, drive.visL);
   spray(sim, m.visR, drive.visR);
@@ -211,6 +215,10 @@ export function closedStep(sim, drive) {
     spray(sim, m.walk, 0.15);
     spray(sim, m.flexL, 0.4);
     spray(sim, m.flexR, 0.4);
+  }
+  if (drive.fly) {
+    spray(sim, m.power, 0.85);
+    spray(sim, m.jump, 0.55);
   }
   stepSim(sim, 0, { autoInject: false });
   const visL = meanEnergy(sim, m.visL);
@@ -220,9 +228,11 @@ export function closedStep(sim, drive) {
   const flexL = meanEnergy(sim, m.flexL);
   const flexR = meanEnergy(sim, m.flexR);
   const walk = meanEnergy(sim, m.walk);
+  const lift = meanEnergy(sim, m.power);
+  const jumpE = meanEnergy(sim, m.jump);
   const turn = (visR - visL) * 1.4 + (dnR - dnL) * 0.8;
-  const speed = drive.feed ? 0.05 : Math.min(1, walk * 1.6 + 0.25 * (flexL + flexR));
-  return { speed, turn, flexL, flexR, visL, visR };
+  const speed = drive.feed ? 0.05 : Math.min(1, walk * 1.6 + 0.25 * (flexL + flexR) + lift * 0.35);
+  return { speed, turn, flexL, flexR, visL, visR, lift, jump: jumpE };
 }
 
 export function stepSim(sim, now, opts = {}) {

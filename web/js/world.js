@@ -1,7 +1,8 @@
-import * as THREE from "three";
-import { makeFruitFly } from "./scale-objects.js";
+import * as THREE from "../vendor/three.module.js";
+import { applyRig, createRiggedFly, STAND_Y } from "./fly-rig.js";
 
 const TABLE = 50000;
+const CRUISE_Y = 2800;
 
 function grape() {
   const g = new THREE.Group();
@@ -62,19 +63,36 @@ export function createWorld() {
   root.add(table);
 
   const agent = new THREE.Group();
-  agent.position.set(0, 500, 0);
-  const fly = makeFruitFly();
-  fly.scale.setScalar(1);
+  agent.position.set(0, STAND_Y, 0);
+  const fly = createRiggedFly();
   fly.traverse((o) => {
     if (!o.isMesh || !o.material) return;
     o.material = o.material.clone();
     o.material.transparent = true;
-    o.material.depthWrite = o.material.opacity < 0.9;
+    if (o.material.opacity >= 0.9) o.material.depthWrite = true;
   });
   agent.add(fly);
   root.add(agent);
 
-  return { root, table, agent, fly, fruits: [], heading: 0, state: "wander", feedUntil: 0, waypoint: null };
+  return {
+    root,
+    table,
+    agent,
+    fly,
+    fruits: [],
+    heading: 0,
+    state: "wander",
+    feedUntil: 0,
+    waypoint: null,
+    airborne: false,
+    phase: "walk",
+    gait: 0,
+    launch: 0,
+    wantFly: false,
+    flyLockUntil: 0,
+    standY: STAND_Y,
+    wanderSince: 0,
+  };
 }
 
 export function giveFruit(world, kind = "grape") {
@@ -97,6 +115,7 @@ export function clearFruit(world) {
   world.fruits.length = 0;
   world.state = "wander";
   world.waypoint = null;
+  world.wanderSince = 0;
 }
 
 function nearestFruit(world) {
@@ -119,13 +138,52 @@ function clampToTable(pos) {
   pos.z = Math.max(-m, Math.min(m, pos.z));
 }
 
+function inAir(world) {
+  return world.phase === "fly" || world.phase === "takeoff" || world.airborne;
+}
+
+export function beginTakeoff(world, now = 0, hold = false) {
+  if (world.phase === "fly" || world.phase === "takeoff") {
+    world.wantFly = hold;
+    world.flyLockUntil = now + 2800;
+    return;
+  }
+  world.wantFly = hold;
+  world.phase = "takeoff";
+  world.launch = 0;
+  world.state = "wander";
+  world.flyLockUntil = now + 2800;
+}
+
+export function beginLanding(world) {
+  world.wantFly = false;
+  if (world.phase === "walk" || world.phase === "feed") return;
+  world.phase = "land";
+  if (world.launch < 0.2) world.launch = 1;
+}
+
+export function setAirborne(world, on, now = 0) {
+  if (on) beginTakeoff(world, now, true);
+  else beginLanding(world);
+}
+
 export function senseWorld(world) {
   const hit = nearestFruit(world);
+  const flying = inAir(world);
   if (world.state === "feed") {
-    return { visL: 0.15, visR: 0.15, walk: 0.08, feed: 1 };
+    return { visL: 0.15, visR: 0.15, walk: 0.08, feed: 1, fly: 0 };
+  }
+  if (flying && !hit) {
+    return {
+      visL: 0.2 + Math.random() * 0.15,
+      visR: 0.2 + Math.random() * 0.15,
+      walk: 0.12,
+      feed: 0,
+      fly: 1,
+    };
   }
   if (!hit) {
-    return { visL: 0.08 + Math.random() * 0.12, visR: 0.08 + Math.random() * 0.12, walk: 0.55, feed: 0 };
+    return { visL: 0.08 + Math.random() * 0.12, visR: 0.08 + Math.random() * 0.12, walk: 0.55, feed: 0, fly: 0 };
   }
   const body = world.agent;
   const dx = hit.fruit.position.x - body.position.x;
@@ -136,50 +194,67 @@ export function senseWorld(world) {
   const ang = Math.atan2(right, fwd);
   const left = Math.max(0, Math.min(1, -ang / (Math.PI / 2)));
   const rite = Math.max(0, Math.min(1, ang / (Math.PI / 2)));
-  if (hit.dist < (hit.fruit.userData.radius || 900) + 900) {
-    return { visL: 0.25, visR: 0.25, walk: 0.05, feed: 1, dist: hit.dist, fruit: hit.fruit };
+  const reach = (hit.fruit.userData.radius || 900) + 900;
+  if (!flying && hit.dist < reach) {
+    return { visL: 0.25, visR: 0.25, walk: 0.05, feed: 1, fly: 0, dist: hit.dist, fruit: hit.fruit };
   }
   return {
     visL: 0.25 + 0.75 * left,
     visR: 0.25 + 0.75 * rite,
-    walk: 0.85,
+    walk: flying ? 0.2 : 0.85,
     feed: 0,
+    fly: flying ? 1 : 0,
     dist: hit.dist,
     fruit: hit.fruit,
   };
 }
 
-function stepLegs(world, motor, now) {
-  const legs = world.fly.userData.legs || [];
-  const spd = Math.max(0.15, motor.speed);
-  const gait = now * 0.018 * (0.4 + spd);
-  for (const leg of legs) {
-    const phase = gait + (leg.userData.side === "left" ? 0 : Math.PI) + leg.userData.pair * 0.7;
-    const flex = leg.userData.side === "left" ? motor.flexL : motor.flexR;
-    const swing = Math.sin(phase) * (0.35 + 0.55 * spd) + (flex - 0.2) * 0.4;
-    const side = leg.userData.side === "left" ? -1 : 1;
-    leg.rotation.z = side * 0.65;
-    leg.rotation.x = 0.2 + swing;
-  }
-  const wings = world.fly.userData.wings || [];
-  for (const w of wings) {
-    w.rotation.x = -1.05 + Math.sin(now * 0.04) * 0.08 * spd;
-  }
+function poseMode(world) {
+  if (world.state === "feed") return "feed";
+  if (world.phase === "takeoff") return "takeoff";
+  if (world.phase === "land") return "land";
+  if (world.phase === "fly" || world.airborne) return "fly";
+  return "walk";
+}
+
+function applyBody(world, dt, now, motor, drive) {
+  const body = world.agent;
+  const turn = Math.max(-4, Math.min(4, motor.turn || 0));
+  world.heading += turn * dt * 2.2;
+  const flying = inAir(world);
+  const speed = flying
+    ? 900 + 2800 * Math.max(0.2, motor.speed || 0)
+    : 350 + 2000 * Math.max(0, Math.min(1, motor.speed || 0));
+  body.position.x += Math.sin(world.heading) * speed * dt;
+  body.position.z += Math.cos(world.heading) * speed * dt;
+  clampToTable(body.position);
+  body.rotation.y = world.heading;
+  body.rotation.z = turn * (flying ? 0.18 : 0.12);
+  world.gait = (world.gait + dt * (0.8 + (motor.speed || 0) * 2.4)) % 1;
+  applyRig(world.fly, {
+    mode: poseMode(world),
+    gait: world.gait,
+    speed: motor.speed || 0,
+    turn,
+    now,
+    launch: world.launch,
+    flexL: motor.flexL || 0,
+    flexR: motor.flexR || 0,
+  });
+  return turn;
 }
 
 export function tickWorld(world, dt, now, motor, drive) {
   const body = world.agent;
   drive = drive || senseWorld(world);
-  if (drive.feed && drive.fruit) {
-    if (world.state !== "feed") {
-      world.state = "feed";
-      world.feedUntil = now + 3200;
-      world.eating = drive.fruit;
-    }
-  }
+  motor = motor || { speed: 0.4, turn: 0, flexL: 0, flexR: 0, lift: 0, jump: 0 };
+
+  if (world.wantFly && now > world.flyLockUntil + 7000) world.wantFly = false;
+
   if (world.state === "feed" && now < world.feedUntil) {
-    body.rotation.x = 0.18 + Math.sin(now * 0.02) * 0.06;
-    stepLegs(world, { speed: 0.1, flexL: 0.4, flexR: 0.4 }, now);
+    body.rotation.x = 0.22;
+    body.position.y = world.standY;
+    applyRig(world.fly, { mode: "feed", gait: 0, speed: 0.1, turn: 0, now, launch: 0 });
     return "feed";
   }
   if (world.state === "feed") {
@@ -192,20 +267,76 @@ export function tickWorld(world, dt, now, motor, drive) {
       world.eating = null;
     }
     world.state = "wander";
+    world.wanderSince = now;
+    beginTakeoff(world, now, false);
+  }
+
+  if (drive.feed && drive.fruit && !inAir(world) && world.phase !== "takeoff") {
+    if (world.state !== "feed") {
+      world.state = "feed";
+      world.feedUntil = now + 3200;
+      world.eating = drive.fruit;
+      world.phase = "walk";
+      world.airborne = false;
+    }
+  }
+
+  if (world.phase === "walk" && world.state !== "feed") {
+    if (!world.fruits.length && !world.wanderSince) world.wanderSince = now;
+    if (world.fruits.length) world.wanderSince = 0;
+    if (motor.jump > 0.42 || motor.lift > 0.38) beginTakeoff(world, now, false);
+    else if (!world.fruits.length && world.wanderSince && now - world.wanderSince > 5500) {
+      beginTakeoff(world, now, false);
+    }
+  }
+
+  if (world.phase === "fly" && drive.fruit && drive.dist < 1500 && now > world.flyLockUntil && !world.wantFly) {
+    beginLanding(world);
+  }
+
+  if (world.phase === "takeoff") {
+    world.launch = Math.min(1, world.launch + dt / 0.45);
+    const jump = Math.max(0, (world.launch - 0.32) / 0.68);
+    body.position.y = world.standY + (CRUISE_Y - world.standY) * jump * jump;
+    world.airborne = jump > 0.04;
+    body.rotation.x = -0.22 * jump;
+    applyBody(world, dt, now, motor, drive);
+    if (world.launch >= 1) world.phase = "fly";
+    return "takeoff";
+  }
+
+  if (world.phase === "land") {
+    world.launch = Math.max(0, world.launch - dt / 0.5);
+    const t = world.launch;
+    body.position.y = world.standY + (CRUISE_Y - world.standY) * t * t;
+    world.airborne = t > 0.08;
+    body.rotation.x = -0.22 * t;
+    applyBody(world, dt, now, motor, drive);
+    if (world.launch <= 0) {
+      world.phase = "walk";
+      world.airborne = false;
+      world.wantFly = false;
+      body.position.y = world.standY;
+      body.rotation.x = 0;
+    }
+    return "land";
+  }
+
+  if (world.phase === "fly") {
+    world.airborne = true;
+    world.launch = 1;
+    const wantY = CRUISE_Y + Math.sin(now * 0.003) * 180;
+    body.position.y += (wantY - body.position.y) * Math.min(1, dt * 1.8);
+    body.rotation.x = -0.25;
+    applyBody(world, dt, now, motor, drive);
+    return "fly";
   }
 
   world.state = drive.fruit && !drive.feed ? "seek" : "wander";
+  world.airborne = false;
+  body.position.y = world.standY;
   body.rotation.x = 0;
-  const turn = Math.max(-4, Math.min(4, motor.turn));
-  world.heading += turn * dt * 2.2;
-  const speed = 400 + 2200 * Math.max(0, Math.min(1, motor.speed));
-  body.position.x += Math.sin(world.heading) * speed * dt;
-  body.position.z += Math.cos(world.heading) * speed * dt;
-  clampToTable(body.position);
-  body.position.y = 280;
-  body.rotation.y = world.heading;
-  body.rotation.z = turn * 0.12;
-  stepLegs(world, motor, now);
+  applyBody(world, dt, now, motor, drive);
   return world.state;
 }
 
@@ -214,7 +345,7 @@ export function setFlyGhost(fly, camera, worldPos) {
   const t = Math.max(0, Math.min(1, (d - 1200) / 2500));
   fly.traverse((o) => {
     if (!o.isMesh || !o.material) return;
-    const base = o.userData.baseOpacity ?? (o.material.opacity < 0.5 ? 0.35 : 1);
+    const base = o.userData.baseOpacity ?? (o.material.opacity < 0.5 ? 0.38 : 1);
     o.userData.baseOpacity = o.userData.baseOpacity ?? base;
     o.material.opacity = 0.08 + o.userData.baseOpacity * t * 0.92;
     o.material.transparent = true;
