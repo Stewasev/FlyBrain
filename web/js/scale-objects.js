@@ -104,6 +104,68 @@ function makeHair() {
   return new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 40, 35, 8, false), mat);
 }
 
+export function makeFruitFly() {
+  const g = new THREE.Group();
+  const tan = new THREE.MeshStandardMaterial({ color: 0xc4a056, roughness: 0.62, metalness: 0.04 });
+  const dark = new THREE.MeshStandardMaterial({ color: 0x2a1810, roughness: 0.7, metalness: 0.04 });
+  const eye = new THREE.MeshStandardMaterial({ color: 0xe01810, roughness: 0.28, metalness: 0.02 });
+  const wing = new THREE.MeshStandardMaterial({
+    color: 0xe8e0c8,
+    roughness: 0.18,
+    metalness: 0.02,
+    transparent: true,
+    opacity: 0.32,
+    side: THREE.DoubleSide,
+    depthWrite: false,
+  });
+  const head = new THREE.Mesh(new THREE.SphereGeometry(280, 14, 12), tan);
+  head.position.set(0, 40, -620);
+  head.scale.set(1.05, 0.9, 0.95);
+  const e1 = new THREE.Mesh(new THREE.SphereGeometry(210, 12, 10), eye);
+  e1.position.set(200, 70, -680);
+  const e2 = e1.clone();
+  e2.position.x = -200;
+  const thorax = new THREE.Mesh(new THREE.SphereGeometry(320, 14, 12), tan);
+  thorax.position.set(0, 20, -80);
+  thorax.scale.set(1.05, 0.9, 1.15);
+  const abdomen = new THREE.Group();
+  abdomen.position.set(0, 0, 520);
+  for (let i = 0; i < 5; i++) {
+    const ring = new THREE.Mesh(
+      new THREE.SphereGeometry(240 - i * 18, 12, 10),
+      i % 2 === 0 ? tan : dark
+    );
+    ring.position.z = i * 160;
+    ring.scale.set(1.1 - i * 0.08, 0.85, 0.7);
+    abdomen.add(ring);
+  }
+  const w1 = new THREE.Mesh(new THREE.PlaneGeometry(1600, 700), wing);
+  w1.position.set(280, 180, 40);
+  w1.rotation.set(-1.05, 0.15, 0.55);
+  const w2 = w1.clone();
+  w2.position.x = -280;
+  w2.rotation.z = -0.55;
+  g.add(head, e1, e2, thorax, abdomen, w1, w2);
+  const legMat = new THREE.MeshStandardMaterial({ color: 0x3a2a18, roughness: 0.6 });
+  const legs = [];
+  const zSlots = [-200, -40, 140];
+  for (let p = 0; p < 3; p++) {
+    for (const side of [-1, 1]) {
+      const leg = new THREE.Mesh(new THREE.CylinderGeometry(18, 14, 520, 5), legMat);
+      leg.position.set(side * 160, -280, zSlots[p]);
+      leg.rotation.z = side * 0.65;
+      leg.rotation.x = 0.25;
+      leg.userData.side = side < 0 ? "left" : "right";
+      leg.userData.pair = p;
+      g.add(leg);
+      legs.push(leg);
+    }
+  }
+  g.userData.legs = legs;
+  g.userData.wings = [w1, w2];
+  return g;
+}
+
 export function makeHouseFly() {
   const g = new THREE.Group();
   const body = new THREE.MeshStandardMaterial({ color: 0x1a1a1c, roughness: 0.7, metalness: 0.15 });

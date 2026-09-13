@@ -27,11 +27,11 @@ import {
   setSkeletonFloats,
 } from "./select.js";
 import { parseHash, serializeHash } from "./hash.js";
-import { activityFocus, createSim, hottest, LIVE_MODES, setSimMode, stepSim } from "./live.js";
+import { bindMotors, closedStep, createSim, hottest, setSimMode, stepSim } from "./live.js";
 import { neuronsOfType, searchCatalog } from "./search.js";
 import { addScaleLights, fillScaleObjects } from "./scale-objects.js";
 import { formatStep } from "./stories.js";
-import { clearFruit, createWorld, giveFruit, setFlyGhost, tickWorld } from "./world.js";
+import { clearFruit, createWorld, giveFruit, senseWorld, setFlyGhost, tickWorld } from "./world.js";
 
 const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 const canvas = document.getElementById("view");
@@ -313,7 +313,7 @@ function showTab(name) {
 function setLivePlate(behavior) {
   const copy = {
     wander: { title: "Walking", narration: "No fruit in range. Descending and motor cells step the VNC." },
-    seek: { title: "Found fruit", narration: "Visual and olfactory cells lock on. She's walking to it." },
+    seek: { title: "Found fruit", narration: "Left/right visual cells see the fruit. Motor neurons walk him there." },
     feed: { title: "Feeding", narration: "Proboscis down. Taste and feeding circuits take over." },
   };
   const view = copy[behavior] || copy.wander;
@@ -325,7 +325,10 @@ function setLivePlate(behavior) {
 }
 
 function ensureSim() {
-  if (!state.sim) state.sim = createSim(state.points.userData.soma, state.partners);
+  if (state.sim) return;
+  state.sim = createSim(state.points.userData.soma, state.partners);
+  bindMotors(state.sim, state.neurons, state.strings);
+  setSimMode(state.sim, state.neurons, state.strings, "walk");
 }
 
 function startLive() {
@@ -608,14 +611,13 @@ function tick(now) {
   const tweening = tickTween(camAnim, world.camera, world.controls, now);
   if (state.playing && state.tour && now - state.playAt > 5500) stepTour(1);
   if (state.live && state.sim) {
-    const bh = tickWorld(habitat, 0.016, now);
-    const want = bh === "seek" ? "vision" : bh === "feed" ? "drift" : "walk";
-    if (want !== state.liveMode) {
-      state.liveMode = want;
-      setSimMode(state.sim, state.neurons, state.strings, want);
+    const drive = senseWorld(habitat);
+    const motor = closedStep(state.sim, drive);
+    const bh = tickWorld(habitat, 0.016, now, motor, drive);
+    if (bh !== state.liveMode) {
+      state.liveMode = bh;
       setLivePlate(bh);
     }
-    stepSim(state.sim, now);
     const soma = state.points.userData.soma;
     const hot = hottest(state.sim.energy, 32, 0.2);
     const sparks = hot.filter((i) => state.sim.energy[i] > 0.35).map((i) => soma[i]);

@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { makeHouseFly } from "./scale-objects.js";
+import { makeFruitFly } from "./scale-objects.js";
 
 const TABLE = 50000;
 
@@ -63,8 +63,8 @@ export function createWorld() {
 
   const agent = new THREE.Group();
   agent.position.set(0, 500, 0);
-  const fly = makeHouseFly();
-  fly.scale.setScalar(0.36);
+  const fly = makeFruitFly();
+  fly.scale.setScalar(1);
   fly.traverse((o) => {
     if (!o.isMesh || !o.material) return;
     o.material = o.material.clone();
@@ -119,11 +119,67 @@ function clampToTable(pos) {
   pos.z = Math.max(-m, Math.min(m, pos.z));
 }
 
-export function tickWorld(world, dt, now) {
-  const body = world.agent;
+export function senseWorld(world) {
   const hit = nearestFruit(world);
+  if (world.state === "feed") {
+    return { visL: 0.15, visR: 0.15, walk: 0.08, feed: 1 };
+  }
+  if (!hit) {
+    return { visL: 0.08 + Math.random() * 0.12, visR: 0.08 + Math.random() * 0.12, walk: 0.55, feed: 0 };
+  }
+  const body = world.agent;
+  const dx = hit.fruit.position.x - body.position.x;
+  const dz = hit.fruit.position.z - body.position.z;
+  const h = world.heading;
+  const right = -Math.sin(h) * dz + Math.cos(h) * dx;
+  const fwd = Math.cos(h) * dz + Math.sin(h) * dx;
+  const ang = Math.atan2(right, fwd);
+  const left = Math.max(0, Math.min(1, -ang / (Math.PI / 2)));
+  const rite = Math.max(0, Math.min(1, ang / (Math.PI / 2)));
+  if (hit.dist < (hit.fruit.userData.radius || 900) + 900) {
+    return { visL: 0.25, visR: 0.25, walk: 0.05, feed: 1, dist: hit.dist, fruit: hit.fruit };
+  }
+  return {
+    visL: 0.25 + 0.75 * left,
+    visR: 0.25 + 0.75 * rite,
+    walk: 0.85,
+    feed: 0,
+    dist: hit.dist,
+    fruit: hit.fruit,
+  };
+}
+
+function stepLegs(world, motor, now) {
+  const legs = world.fly.userData.legs || [];
+  const spd = Math.max(0.15, motor.speed);
+  const gait = now * 0.018 * (0.4 + spd);
+  for (const leg of legs) {
+    const phase = gait + (leg.userData.side === "left" ? 0 : Math.PI) + leg.userData.pair * 0.7;
+    const flex = leg.userData.side === "left" ? motor.flexL : motor.flexR;
+    const swing = Math.sin(phase) * (0.35 + 0.55 * spd) + (flex - 0.2) * 0.4;
+    const side = leg.userData.side === "left" ? -1 : 1;
+    leg.rotation.z = side * 0.65;
+    leg.rotation.x = 0.2 + swing;
+  }
+  const wings = world.fly.userData.wings || [];
+  for (const w of wings) {
+    w.rotation.x = -1.05 + Math.sin(now * 0.04) * 0.08 * spd;
+  }
+}
+
+export function tickWorld(world, dt, now, motor, drive) {
+  const body = world.agent;
+  drive = drive || senseWorld(world);
+  if (drive.feed && drive.fruit) {
+    if (world.state !== "feed") {
+      world.state = "feed";
+      world.feedUntil = now + 3200;
+      world.eating = drive.fruit;
+    }
+  }
   if (world.state === "feed" && now < world.feedUntil) {
-    body.rotation.x = Math.sin(now * 0.012) * 0.12;
+    body.rotation.x = 0.18 + Math.sin(now * 0.02) * 0.06;
+    stepLegs(world, { speed: 0.1, flexL: 0.4, flexR: 0.4 }, now);
     return "feed";
   }
   if (world.state === "feed") {
@@ -136,47 +192,20 @@ export function tickWorld(world, dt, now) {
       world.eating = null;
     }
     world.state = "wander";
-    world.waypoint = null;
   }
 
-  if (hit && hit.dist < (hit.fruit.userData.radius || 900) + 800) {
-    world.state = "feed";
-    world.feedUntil = now + 3500;
-    world.eating = hit.fruit;
-    body.rotation.x = 0.2;
-    return "feed";
-  }
-
-  if (hit && hit.dist < 18000) {
-    world.state = "seek";
-    const dx = hit.fruit.position.x - body.position.x;
-    const dz = hit.fruit.position.z - body.position.z;
-    world.heading = Math.atan2(dx, dz);
-  } else {
-    world.state = "wander";
-    body.rotation.x = 0;
-    if (!world.waypoint || body.position.distanceTo(world.waypoint) < 800) {
-      const a = Math.random() * Math.PI * 2;
-      const r = 4000 + Math.random() * 16000;
-      world.waypoint = new THREE.Vector3(Math.cos(a) * r, body.position.y, Math.sin(a) * r);
-      clampToTable(world.waypoint);
-    }
-    const dx = world.waypoint.x - body.position.x;
-    const dz = world.waypoint.z - body.position.z;
-    const want = Math.atan2(dx, dz);
-    let d = want - world.heading;
-    while (d > Math.PI) d -= Math.PI * 2;
-    while (d < -Math.PI) d += Math.PI * 2;
-    world.heading += Math.max(-3 * dt, Math.min(3 * dt, d));
-  }
-
-  const speed = world.state === "seek" ? 2800 : 1600;
+  world.state = drive.fruit && !drive.feed ? "seek" : "wander";
+  body.rotation.x = 0;
+  const turn = Math.max(-4, Math.min(4, motor.turn));
+  world.heading += turn * dt * 2.2;
+  const speed = 400 + 2200 * Math.max(0, Math.min(1, motor.speed));
   body.position.x += Math.sin(world.heading) * speed * dt;
   body.position.z += Math.cos(world.heading) * speed * dt;
   clampToTable(body.position);
-  body.position.y = 500;
+  body.position.y = 280;
   body.rotation.y = world.heading;
-  body.rotation.z = Math.sin(now * 0.02) * 0.08;
+  body.rotation.z = turn * 0.12;
+  stepLegs(world, motor, now);
   return world.state;
 }
 

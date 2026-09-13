@@ -154,7 +154,78 @@ export function setSimMode(sim, neurons, strings, mode) {
   }
 }
 
-export function stepSim(sim, now) {
+function meanEnergy(sim, idx) {
+  if (!idx || !idx.length) return 0;
+  let s = 0;
+  for (const i of idx) s += sim.energy[i];
+  return s / idx.length;
+}
+
+export function bindMotors(sim, neurons, strings) {
+  const visL = [];
+  const visR = [];
+  const dnL = [];
+  const dnR = [];
+  const walk = [];
+  const flexL = [];
+  const flexR = [];
+  const extL = [];
+  const extR = [];
+  for (const n of neurons) {
+    if (!n.hasSoma) continue;
+    const i = sim.idToI.get(n.id);
+    if (i == null) continue;
+    const t = typeOf(n, strings);
+    const sc = strings.superclass[n.superclass] || "";
+    const side = sideOf(n, strings);
+    const vis = t.startsWith("T4") || t.startsWith("T5") || t.startsWith("LC");
+    if (vis && side === "left") visL.push(i);
+    if (vis && side === "right") visR.push(i);
+    if (sc === "descending_neuron" && side === "left") dnL.push(i);
+    if (sc === "descending_neuron" && side === "right") dnR.push(i);
+    if (t === "MDN" || t.startsWith("DNg")) walk.push(i);
+    if (t.includes("flexor MN") && side === "left") flexL.push(i);
+    if (t.includes("flexor MN") && side === "right") flexR.push(i);
+    if (t.includes("extensor MN") && side === "left") extL.push(i);
+    if (t.includes("extensor MN") && side === "right") extR.push(i);
+  }
+  sim.motors = { visL, visR, dnL, dnR, walk, flexL, flexR, extL, extR };
+}
+
+function spray(sim, idx, amount) {
+  if (!idx.length || amount <= 0) return;
+  const n = Math.min(idx.length, 24 + Math.floor(amount * 40));
+  for (let k = 0; k < n; k++) {
+    const i = idx[Math.floor(Math.random() * idx.length)];
+    sim.energy[i] = Math.min(1, sim.energy[i] + amount);
+  }
+}
+
+export function closedStep(sim, drive) {
+  const m = sim.motors;
+  if (!m) return { speed: 0, turn: 0, flexL: 0, flexR: 0 };
+  spray(sim, m.walk, drive.walk);
+  spray(sim, m.visL, drive.visL);
+  spray(sim, m.visR, drive.visR);
+  if (drive.feed) {
+    spray(sim, m.walk, 0.15);
+    spray(sim, m.flexL, 0.4);
+    spray(sim, m.flexR, 0.4);
+  }
+  stepSim(sim, 0, { autoInject: false });
+  const visL = meanEnergy(sim, m.visL);
+  const visR = meanEnergy(sim, m.visR);
+  const dnL = meanEnergy(sim, m.dnL);
+  const dnR = meanEnergy(sim, m.dnR);
+  const flexL = meanEnergy(sim, m.flexL);
+  const flexR = meanEnergy(sim, m.flexR);
+  const walk = meanEnergy(sim, m.walk);
+  const turn = (visR - visL) * 1.4 + (dnR - dnL) * 0.8;
+  const speed = drive.feed ? 0.05 : Math.min(1, walk * 1.6 + 0.25 * (flexL + flexR));
+  return { speed, turn, flexL, flexR, visL, visR };
+}
+
+export function stepSim(sim, now, opts = {}) {
   const { n, energy, next, outI, outW } = sim;
   for (let i = 0; i < n; i++) next[i] = energy[i] * 0.9;
   for (let i = 0; i < n; i++) {
@@ -171,7 +242,7 @@ export function stepSim(sim, now) {
       next[j] += send * (outW[base + k] / wsum);
     }
   }
-  if (now - sim.injectAt > 180) {
+  if (opts.autoInject !== false && now - sim.injectAt > 180) {
     sim.injectAt = now;
     const group = sim.groups[sim.groupI % sim.groups.length] || sim.seeds;
     sim.groupI += 1;
