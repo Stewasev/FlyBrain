@@ -14,6 +14,7 @@ import {
   tickTween,
   tweenTo,
   updateFocusCloud,
+  updateScaleRefs,
 } from "./scene.js";
 import {
   makeLace,
@@ -613,6 +614,7 @@ function tick(now) {
   if (!reduced && focusCloud.visible) {
     focusCloud.material.size = 13 + Math.sin(now * 0.003) * 2.5;
   }
+  updateScaleRefs(world.scale, world.camera, world.controls);
   world.controls.update();
   world.renderer.render(world.scene, world.camera);
   tickScale();
