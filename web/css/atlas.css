@@ -239,6 +239,23 @@ button.active {
 
 .row { display: flex; gap: 6px; flex-wrap: wrap; }
 
+.tabs {
+  margin-bottom: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line);
+}
+
+.tabs button {
+  flex: 1;
+}
+
+.live-note {
+  font-size: 0.8rem;
+  color: var(--mute);
+  line-height: 1.4;
+  margin: 10px 0 0;
+}
+
 .chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
 
 .chip {

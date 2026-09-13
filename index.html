@@ -36,6 +36,12 @@
     <ol class="beats" id="plate-beats"></ol>
   </div>
   <aside class="logbook" id="logbook">
+    <div class="row tabs" id="tabs">
+      <button type="button" id="tab-tours" class="active">Tours</button>
+      <button type="button" id="tab-live">Live</button>
+      <button type="button" id="copy">Copy link</button>
+    </div>
+    <div id="panel-tours">
     <h2>Tours</h2>
     <div class="row" id="tour-btns"></div>
     <div class="row" style="margin-top:6px">
@@ -43,7 +49,6 @@
       <button type="button" id="play">Play</button>
       <button type="button" id="next">Next</button>
       <button type="button" id="clear">Exit</button>
-      <button type="button" id="copy">Copy link</button>
     </div>
     <h2>Find</h2>
     <input type="search" id="search" placeholder="pC1, MDN, bodyId" autocomplete="off" />
@@ -65,10 +70,16 @@
     </details>
     <h2>Cell</h2>
     <div class="inspector" id="inspector">Click a soma, or start a tour.</div>
+    </div>
+    <div id="panel-live" hidden>
+      <h2>Watch</h2>
+      <div class="row" id="live-modes"></div>
+      <p class="live-note">Toy spikes on the real top-15 partner graph. Not a recording.</p>
+    </div>
   </aside>
   <p class="credit">Berg et al., Cell 2026 · FlyEM / Cambridge / MRC LMB / Google Research · data CC-BY</p>
   <div id="scale"><i></i><span id="scale-label">50 µm</span></div>
-  <p class="keys">drag · scroll · click · 1–4 tours · space plays · arrows step · / find</p>
+  <p class="keys">drag · scroll · click · 1–4 tours · L live · space plays · arrows step · / find</p>
   <script type="module" src="web/js/main.js"></script>
 </body>
 </html>

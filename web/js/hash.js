@@ -8,6 +8,7 @@ export function parseHash(hash) {
   const idRaw = params.get("id");
   const color = params.get("c");
   const type = params.get("type");
+  const live = params.get("live");
   const embed = params.get("embed") === "1";
   const step = stepRaw === null || stepRaw === "" ? null : Number(stepRaw);
   const id = idRaw === null || idRaw === "" ? null : Number(idRaw);
@@ -17,13 +18,23 @@ export function parseHash(hash) {
     id: Number.isFinite(id) ? id : null,
     color: COLORS.has(color) ? color : null,
     type: type || null,
+    live: live || null,
     embed,
   };
 }
 
-export function serializeHash({ tour = null, step = null, id = null, color = null, type = null } = {}) {
+export function serializeHash({
+  tour = null,
+  step = null,
+  id = null,
+  color = null,
+  type = null,
+  live = null,
+} = {}) {
   const params = new URLSearchParams();
-  if (tour) {
+  if (live) {
+    params.set("live", live);
+  } else if (tour) {
     params.set("t", tour);
     if (step != null && Number.isFinite(Number(step))) params.set("s", String(step));
   } else if (type) {

@@ -96,7 +96,7 @@ export function buildCloud(neurons, strings, mode) {
 }
 
 export function paintCloud(points, neurons, strings, mode, opts) {
-  const { hidden = new Set(), focus = null, dimUnfocused = false } = opts;
+  const { hidden = new Set(), focus = null, dimUnfocused = false, activity = null } = opts;
   const soma = points.userData.soma;
   const colors = points.geometry.attributes.color;
   for (let i = 0; i < soma.length; i++) {
@@ -107,7 +107,15 @@ export function paintCloud(points, neurons, strings, mode, opts) {
       continue;
     }
     let c = colorFor(mode, n, strings);
-    if (dimUnfocused && focus && !focus.has(n.id)) {
+    if (activity) {
+      const a = activity[i] || 0;
+      const base = 0.16;
+      c = [
+        Math.min(1, c[0] * base + 1.0 * a),
+        Math.min(1, c[1] * base + 0.84 * a),
+        Math.min(1, c[2] * base + 0.38 * a),
+      ];
+    } else if (dimUnfocused && focus && !focus.has(n.id)) {
       c = [c[0] * 0.38, c[1] * 0.38, c[2] * 0.38];
     }
     colors.setXYZ(i, c[0], c[1], c[2]);

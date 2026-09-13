@@ -19,7 +19,7 @@ Data: [male-cns.janelia.org](https://male-cns.janelia.org) · CC-BY · Berg et a
 
 That starts a local server and opens http://127.0.0.1:8000/ — no bake, no npm. You need [Python 3](https://www.python.org/downloads/) on PATH (Windows installer: tick **Add python.exe to PATH**). Ctrl+C or close the window to stop.
 
-The address bar is the share link. **Copy link** copies it. Examples: `#t=dimorphism&s=1` (male-specific cells), `#type=pC1_1a` (every soma of that type), `#id=12781&c=fruDsx` (one neuron). Add `?embed=1` to hide the logbook.
+The address bar is the share link. **Copy link** copies it. Examples: `#t=dimorphism&s=1`, `#live=vision` (simulated activity), `#type=pC1_1a`, `#id=12781&c=fruDsx`. Add `?embed=1` to hide the logbook. Kiosk: `?embed=1#live=vision`.
 
 Or by hand from the repo root:
 
@@ -32,6 +32,7 @@ python -m http.server 8000 --bind 127.0.0.1
 | drag / scroll | orbit, zoom |
 | click | select a soma |
 | `1` `2` `3` `4` | courtship, walking, vision, dimorphism |
+| `L` | Live tab (simulated spikes on the real graph) |
 | `←` `→` | tour step |
 | `space` | play / pause |
 | `esc` | exit tour |

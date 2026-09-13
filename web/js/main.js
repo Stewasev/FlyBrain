@@ -24,6 +24,7 @@ import {
   setSkeletonFloats,
 } from "./select.js";
 import { parseHash, serializeHash } from "./hash.js";
+import { createSim, LIVE_MODES, setSimMode, stepSim } from "./live.js";
 import { neuronsOfType, searchCatalog } from "./search.js";
 import { formatStep } from "./stories.js";
 
@@ -72,6 +73,11 @@ const state = {
   playAt: 0,
   idle: true,
   lastInput: performance.now(),
+  live: false,
+  liveMode: "vision",
+  liveShuffle: true,
+  liveShuffleAt: 0,
+  sim: null,
   raycaster: new THREE.Raycaster(),
   mouse: new THREE.Vector2(),
 };
@@ -121,7 +127,8 @@ function paint() {
   paintCloud(state.points, state.neurons, state.strings, state.color, {
     hidden: state.hidden,
     focus,
-    dimUnfocused: Boolean(focus),
+    dimUnfocused: Boolean(focus) && !state.live,
+    activity: state.live && state.sim ? state.sim.energy : null,
   });
 }
 
@@ -176,7 +183,8 @@ function writeHash() {
     step: state.tour ? state.tourIndex : null,
     id: state.selected ? state.selected.id : null,
     color: state.color,
-    type: state.tour ? null : state.typeName,
+    type: state.tour || state.live ? null : state.typeName,
+    live: state.live ? state.liveMode : null,
   });
   const url = new URL(window.location.href);
   const want = next.replace(/^#/, "");
@@ -190,6 +198,10 @@ function applyHash(h) {
     state.color = h.color;
     document.getElementById("color").value = h.color;
     renderLegend();
+  }
+  if (h.live) {
+    startLive(h.live);
+    return;
   }
   if (h.tour) {
     const story = state.stories.find((s) => s.id === h.tour);
@@ -281,9 +293,72 @@ function exitTour() {
   selectNeuron(null);
 }
 
-function startTour(id, index = 0) {
+function showTab(name) {
+  const tours = name === "tours";
+  document.getElementById("tab-tours").classList.toggle("active", tours);
+  document.getElementById("tab-live").classList.toggle("active", !tours);
+  document.getElementById("panel-tours").hidden = !tours;
+  document.getElementById("panel-live").hidden = tours;
+}
+
+function setLivePlate() {
+  const mode = LIVE_MODES.find((m) => m.id === state.liveMode) || LIVE_MODES[0];
+  plate.hidden = false;
+  document.getElementById("plate-kicker").textContent = "Live · simulated spikes";
+  document.getElementById("plate-title").textContent = mode.title;
+  document.getElementById("plate-copy").textContent = mode.narration;
+  document.getElementById("plate-beats").innerHTML = LIVE_MODES.map(
+    (m) => `<li class="${m.id === state.liveMode ? "on" : ""}"></li>`
+  ).join("");
+  for (const b of document.querySelectorAll("#live-modes button")) {
+    b.classList.toggle("active", b.dataset.mode === state.liveMode);
+  }
+}
+
+function ensureSim() {
+  if (!state.sim) state.sim = createSim(state.points.userData.soma, state.partners);
+}
+
+function startLive(mode = "vision") {
+  const spec = LIVE_MODES.find((m) => m.id === mode) || LIVE_MODES[1];
+  state.live = true;
+  state.liveMode = spec.id;
+  state.tour = null;
+  state.playing = false;
+  state.selected = null;
   state.typeName = null;
   hitsEl.hidden = true;
+  showTab("live");
+  ensureSim();
+  setSimMode(state.sim, state.neurons, state.strings, spec.id);
+  state.sim.energy.fill(0);
+  state.liveShuffleAt = performance.now();
+  markTourButtons();
+  setPartnerLines(overlay, null, null, state.byId);
+  setLaceDim(state.laceMesh, true);
+  updateFocusCloud(focusCloud, [], state.strings, state.color);
+  flyTo(state.points.userData.soma);
+  setLivePlate();
+  paint();
+  writeHash();
+}
+
+function stopLive() {
+  if (!state.live) return;
+  state.live = false;
+  if (state.sim) state.sim.energy.fill(0);
+  showTab("tours");
+  plate.hidden = true;
+  setLaceDim(state.laceMesh, false);
+  paint();
+  writeHash();
+}
+
+function startTour(id, index = 0) {
+  stopLive();
+  state.typeName = null;
+  hitsEl.hidden = true;
+  showTab("tours");
   state.tour = state.stories.find((s) => s.id === id) || state.stories[0];
   state.tourIndex = index;
   applyTour();
@@ -439,6 +514,11 @@ document.getElementById("prev").addEventListener("click", () => stepTour(-1));
 document.getElementById("next").addEventListener("click", () => stepTour(1));
 document.getElementById("clear").addEventListener("click", exitTour);
 playBtn.addEventListener("click", togglePlay);
+document.getElementById("tab-tours").addEventListener("click", () => {
+  stopLive();
+  writeHash();
+});
+document.getElementById("tab-live").addEventListener("click", () => startLive(state.liveMode));
 copyBtn.addEventListener("click", async () => {
   writeHash();
   const url = window.location.href;
@@ -459,14 +539,19 @@ window.addEventListener("keydown", (ev) => {
   if (ev.target && ["INPUT", "SELECT", "TEXTAREA"].includes(ev.target.tagName)) return;
   if (ev.key === " ") {
     ev.preventDefault();
-    togglePlay();
+    if (state.live) state.liveShuffle = !state.liveShuffle;
+    else togglePlay();
   } else if (ev.key === "ArrowRight") stepTour(1);
   else if (ev.key === "ArrowLeft") stepTour(-1);
-  else if (ev.key === "Escape") exitTour();
+  else if (ev.key === "Escape") {
+    if (state.live) stopLive();
+    else exitTour();
+  }
   else if (ev.key === "1") startTour("courtship");
   else if (ev.key === "2") startTour("walking");
   else if (ev.key === "3") startTour("vision");
   else if (ev.key === "4") startTour("dimorphism");
+  else if (ev.key === "l" || ev.key === "L" || ev.key === "5") startLive(state.liveMode || "vision");
   else if (ev.key === "/") {
     ev.preventDefault();
     document.getElementById("search").focus();
@@ -491,6 +576,19 @@ function tick(now) {
   setOverlayResolution(overlay, canvas.clientWidth, canvas.clientHeight);
   const tweening = tickTween(camAnim, world.camera, world.controls, now);
   if (state.playing && state.tour && now - state.playAt > 5500) stepTour(1);
+  if (state.live && state.sim) {
+    stepSim(state.sim, now);
+    paint();
+    if (state.liveShuffle && now - state.liveShuffleAt > 16000) {
+      const i = LIVE_MODES.findIndex((m) => m.id === state.liveMode);
+      const next = LIVE_MODES[(i + 1) % LIVE_MODES.length];
+      state.liveMode = next.id;
+      setSimMode(state.sim, state.neurons, state.strings, next.id);
+      state.liveShuffleAt = now;
+      setLivePlate();
+      writeHash();
+    }
+  }
   if (!reduced && !tweening && now - state.lastInput > 4000) {
     const tgt = world.controls.target;
     const p = world.camera.position;
@@ -547,7 +645,7 @@ try {
   world.cameras = camerasFromCloud(state.points);
   window.addEventListener("hashchange", () => applyHash(parseHash(window.location.hash)));
   const initial = parseHash(window.location.hash);
-  if (initial.tour || initial.id || initial.type) {
+  if (initial.tour || initial.id || initial.type || initial.live) {
     applyHash(initial);
   } else {
     if (initial.color) {
@@ -564,6 +662,15 @@ try {
   }
   renderLegend();
   renderFilters();
+  document.getElementById("live-modes").innerHTML = LIVE_MODES.map(
+    (m) => `<button type="button" data-mode="${m.id}">${m.title}</button>`
+  ).join("");
+  document.getElementById("live-modes").addEventListener("click", (ev) => {
+    const btn = ev.target.closest("button[data-mode]");
+    if (!btn) return;
+    state.liveShuffle = false;
+    startLive(btn.dataset.mode);
+  });
   tourBtnsEl.innerHTML = stories
     .map((s, i) => `<button type="button" data-story="${s.id}">${i + 1} ${s.title}</button>`)
     .join("");
