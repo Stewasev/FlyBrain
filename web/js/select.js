@@ -104,6 +104,38 @@ export function setLaceDim(lace, dim) {
   lace.material.opacity = dim ? 0.16 : 0.4;
 }
 
+export function setFireLines(overlay, soma, sim, hot) {
+  if (!hot || !hot.length) {
+    overlay.edges.visible = false;
+    return;
+  }
+  const pos = [];
+  const col = [];
+  const kOut = 15;
+  for (const i of hot) {
+    const a = soma[i];
+    const e = sim.energy[i];
+    const base = i * kOut;
+    for (let k = 0; k < kOut; k++) {
+      const j = sim.outI[base + k];
+      if (j < 0) continue;
+      const b = soma[j];
+      pos.push(a.x, a.y, a.z, b.x, b.y, b.z);
+      col.push(1, 0.82, 0.32, 0.95 * e, 0.45, 0.12);
+    }
+  }
+  if (!pos.length) {
+    overlay.edges.visible = false;
+    return;
+  }
+  const geo = new LineSegmentsGeometry();
+  geo.setPositions(pos);
+  geo.setColors(col);
+  overlay.edges.geometry.dispose();
+  overlay.edges.geometry = geo;
+  overlay.edges.visible = true;
+}
+
 export function partnerEntries(selected, partners, byId, strings) {
   if (!selected || !partners) return { up: [], down: [] };
   const row = partners.rows.get(selected.id);

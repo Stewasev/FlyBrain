@@ -11,6 +11,7 @@ const neurons = [
 assert.deepEqual(collectSeeds(neurons, strings, "vision"), [1]);
 assert.deepEqual(collectSeeds(neurons, strings, "courtship"), [2]);
 assert.deepEqual(collectSeeds(neurons, strings, "walk"), [3]);
+assert.ok(collectSeeds(neurons, strings, "drift").length >= 3);
 
 const soma = [
   { id: 10 },

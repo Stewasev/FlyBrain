@@ -5,6 +5,7 @@ import {
   buildCloud,
   buildFocusCloud,
   camerasFromCloud,
+  chaseActivity,
   createScene,
   focusPose,
   goCamera,
@@ -18,13 +19,14 @@ import {
   makeLace,
   makeOverlay,
   partnerEntries,
+  setFireLines,
   setLaceDim,
   setOverlayResolution,
   setPartnerLines,
   setSkeletonFloats,
 } from "./select.js";
 import { parseHash, serializeHash } from "./hash.js";
-import { createSim, LIVE_MODES, setSimMode, stepSim } from "./live.js";
+import { activityFocus, createSim, hottest, LIVE_MODES, setSimMode, stepSim } from "./live.js";
 import { neuronsOfType, searchCatalog } from "./search.js";
 import { formatStep } from "./stories.js";
 
@@ -335,9 +337,8 @@ function startLive(mode = "vision") {
   state.liveShuffleAt = performance.now();
   markTourButtons();
   setPartnerLines(overlay, null, null, state.byId);
-  setLaceDim(state.laceMesh, true);
+  if (state.laceMesh) state.laceMesh.material.opacity = 0.08;
   updateFocusCloud(focusCloud, [], state.strings, state.color);
-  flyTo(state.points.userData.soma);
   setLivePlate();
   paint();
   writeHash();
@@ -350,6 +351,7 @@ function stopLive() {
   showTab("tours");
   plate.hidden = true;
   setLaceDim(state.laceMesh, false);
+  overlay.edges.visible = false;
   paint();
   writeHash();
 }
@@ -578,8 +580,15 @@ function tick(now) {
   if (state.playing && state.tour && now - state.playAt > 5500) stepTour(1);
   if (state.live && state.sim) {
     stepSim(state.sim, now);
+    const soma = state.points.userData.soma;
+    const hot = hottest(state.sim.energy, 32, 0.2);
+    const sparks = hot.filter((i) => state.sim.energy[i] > 0.35).map((i) => soma[i]);
+    updateFocusCloud(focusCloud, sparks, state.strings, state.color);
+    setFireLines(overlay, soma, state.sim, hot);
+    const focus = activityFocus(soma, state.sim.energy);
+    if (focus && !tweening) chaseActivity(world.camera, world.controls, focus, 0.016);
     paint();
-    if (state.liveShuffle && now - state.liveShuffleAt > 16000) {
+    if (state.liveShuffle && now - state.liveShuffleAt > 14000) {
       const i = LIVE_MODES.findIndex((m) => m.id === state.liveMode);
       const next = LIVE_MODES[(i + 1) % LIVE_MODES.length];
       state.liveMode = next.id;
@@ -589,7 +598,7 @@ function tick(now) {
       writeHash();
     }
   }
-  if (!reduced && !tweening && now - state.lastInput > 4000) {
+  if (!state.live && !reduced && !tweening && now - state.lastInput > 4000) {
     const tgt = world.controls.target;
     const p = world.camera.position;
     const dx = p.x - tgt.x;

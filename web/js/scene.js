@@ -109,11 +109,11 @@ export function paintCloud(points, neurons, strings, mode, opts) {
     let c = colorFor(mode, n, strings);
     if (activity) {
       const a = activity[i] || 0;
-      const base = 0.16;
+      const base = 0.07;
       c = [
         Math.min(1, c[0] * base + 1.0 * a),
-        Math.min(1, c[1] * base + 0.84 * a),
-        Math.min(1, c[2] * base + 0.38 * a),
+        Math.min(1, c[1] * base + 0.78 * a),
+        Math.min(1, c[2] * base + 0.28 * a),
       ];
     } else if (dimUnfocused && focus && !focus.has(n.id)) {
       c = [c[0] * 0.38, c[1] * 0.38, c[2] * 0.38];
@@ -257,6 +257,18 @@ export function updateFocusCloud(points, neurons, strings, mode) {
   points.geometry.setAttribute("color", new THREE.BufferAttribute(col, 3));
   points.geometry.computeBoundingSphere();
   points.visible = true;
+}
+
+const _chaseT = new THREE.Vector3();
+const _chaseP = new THREE.Vector3();
+
+export function chaseActivity(camera, controls, focus, dt) {
+  if (!focus) return;
+  _chaseT.set(focus.x, focus.y, focus.z);
+  _chaseP.set(focus.x + 210, focus.y + 55, focus.z + 35);
+  const a = 1 - Math.exp(-(dt || 0.016) * 2.4);
+  camera.position.lerp(_chaseP, a);
+  controls.target.lerp(_chaseT, a);
 }
 
 export function frameFocus(camera, controls, neurons) {
