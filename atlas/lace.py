@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 
 MAGIC = b"LACE"
-VERSION = 1
+VERSION = 2
 
 
 def swc_segments(text: str) -> list[tuple[float, float, float, float, float, float]]:
@@ -35,31 +35,65 @@ def swc_segments(text: str) -> list[tuple[float, float, float, float, float, flo
 
 
 def pack_lace(skel_dir: Path, out_path: Path) -> int:
-    positions: array.array = array.array("f")
-    n_files = 0
+    bodies: list[tuple[int, array.array]] = []
     for path in sorted(skel_dir.glob("*.swc")):
+        try:
+            body_id = int(path.stem)
+        except ValueError:
+            continue
         segs = swc_segments(path.read_text(encoding="utf-8"))
         if not segs:
             continue
-        n_files += 1
+        arr: array.array = array.array("f")
         for seg in segs:
-            positions.extend(seg)
-    n_segments = len(positions) // 6
-    header = struct.pack("<4sII", MAGIC, VERSION, n_segments)
+            arr.extend(seg)
+        bodies.append((body_id, arr))
+
+    n_segments = sum(len(arr) // 6 for _, arr in bodies)
+    header = bytearray(struct.pack("<4sIII", MAGIC, VERSION, len(bodies), n_segments))
+    first = 0
+    positions: array.array = array.array("f")
+    for body_id, arr in bodies:
+        n_seg = len(arr) // 6
+        header.extend(struct.pack("<qII", body_id, first, n_seg))
+        positions.extend(arr)
+        first += n_seg
+
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    out_path.write_bytes(header + positions.tobytes())
-    return n_files
+    out_path.write_bytes(bytes(header) + positions.tobytes())
+    return len(bodies)
 
 
 def read_lace(path: Path) -> dict:
     data = path.read_bytes()
-    magic, version, n_segments = struct.unpack_from("<4sII", data, 0)
+    magic, version, a, b = struct.unpack_from("<4sIII", data, 0)
     if magic != MAGIC:
         raise ValueError(f"bad lace magic {magic!r}")
-    offset = struct.calcsize("<4sII")
+    if version == 1:
+        n_segments = a
+        offset = struct.calcsize("<4sII")
+        n_floats = n_segments * 6
+        buf = array.array("f")
+        buf.frombytes(data[offset : offset + n_floats * 4])
+        if sys.byteorder != "little":
+            buf.byteswap()
+        return {"version": 1, "n_segments": n_segments, "positions": list(buf), "bodies": []}
+
+    n_bodies, n_segments = a, b
+    offset = struct.calcsize("<4sIII")
+    bodies = []
+    for _ in range(n_bodies):
+        body_id, first, n_seg = struct.unpack_from("<qII", data, offset)
+        bodies.append({"id": body_id, "first": first, "n": n_seg})
+        offset += 16
     n_floats = n_segments * 6
     buf = array.array("f")
     buf.frombytes(data[offset : offset + n_floats * 4])
     if sys.byteorder != "little":
         buf.byteswap()
-    return {"version": version, "n_segments": n_segments, "positions": list(buf)}
+    return {
+        "version": 2,
+        "n_segments": n_segments,
+        "positions": list(buf),
+        "bodies": bodies,
+    }

@@ -14,7 +14,7 @@ export function makeLace(positions) {
   const mat = new THREE.LineBasicMaterial({
     color: 0xd9c59a,
     transparent: true,
-    opacity: 0.38,
+    opacity: 0.4,
     depthWrite: false,
   });
   const lines = new THREE.LineSegments(geo, mat);
@@ -87,24 +87,21 @@ export function setPartnerLines(overlay, selected, partners, byId) {
   overlay.edges.visible = true;
 }
 
-export function setSkeletonLines(overlay, segmentsList) {
-  const pos = [];
-  for (const segs of segmentsList) {
-    for (let i = 0; i + 1 < segs.length; i += 2) {
-      const a = segs[i];
-      const b = segs[i + 1];
-      pos.push(a[0], a[1], a[2], b[0], b[1], b[2]);
-    }
-  }
-  if (!pos.length) {
+export function setSkeletonFloats(overlay, floats) {
+  if (!floats || floats.length < 6) {
     overlay.skeletons.visible = false;
     return;
   }
   const geo = new LineSegmentsGeometry();
-  geo.setPositions(pos);
+  geo.setPositions(floats);
   overlay.skeletons.geometry.dispose();
   overlay.skeletons.geometry = geo;
   overlay.skeletons.visible = true;
+}
+
+export function setLaceDim(lace, dim) {
+  if (!lace) return;
+  lace.material.opacity = dim ? 0.16 : 0.4;
 }
 
 export function partnerEntries(selected, partners, byId, strings) {

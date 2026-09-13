@@ -1,37 +1,49 @@
 import * as THREE from "three";
 import { legendFor } from "./palette.js";
-import { loadLace, loadNeurons, loadPartners, loadStories, loadSwc } from "./load.js";
+import { arborFloats, loadLace, loadNeurons, loadPartners, loadStories } from "./load.js";
 import {
   buildCloud,
+  buildFocusCloud,
   camerasFromCloud,
   createScene,
-  frameFocus,
+  focusPose,
   goCamera,
   nearestSoma,
   paintCloud,
+  tickTween,
+  tweenTo,
+  updateFocusCloud,
 } from "./scene.js";
 import {
   makeLace,
   makeOverlay,
   partnerEntries,
+  setLaceDim,
   setOverlayResolution,
   setPartnerLines,
-  setSkeletonLines,
+  setSkeletonFloats,
 } from "./select.js";
 import { formatStep } from "./stories.js";
 
+const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 const canvas = document.getElementById("view");
-const statusEl = document.getElementById("status");
+const boot = document.getElementById("boot");
+const bootBar = document.getElementById("boot-bar");
+const bootMsg = document.getElementById("boot-msg");
+const inspectorEl = document.getElementById("inspector");
 const legendEl = document.getElementById("legend");
 const filtersEl = document.getElementById("filters");
-const inspectorEl = document.getElementById("inspector");
-const narrationEl = document.getElementById("narration");
 const tourBtnsEl = document.getElementById("tour-btns");
+const plate = document.getElementById("plate");
+const playBtn = document.getElementById("play");
 
 const world = createScene(canvas);
 const overlay = makeOverlay();
+const focusCloud = buildFocusCloud();
+const camAnim = { active: false, dur: 1400 };
 world.scene.add(overlay.edges);
 world.scene.add(overlay.skeletons);
+world.scene.add(focusCloud);
 
 const state = {
   pack: null,
@@ -40,24 +52,35 @@ const state = {
   strings: null,
   partners: null,
   stories: [],
+  lace: null,
+  laceMesh: null,
   points: null,
   color: "superclass",
   hidden: new Set(),
   selected: null,
   tour: null,
   tourIndex: 0,
+  playing: false,
+  playAt: 0,
+  idle: true,
+  lastInput: performance.now(),
   raycaster: new THREE.Raycaster(),
   mouse: new THREE.Vector2(),
 };
 
-function setStatus(text) {
-  statusEl.textContent = text;
+function progress(label, pct) {
+  bootMsg.textContent = label;
+  bootBar.style.width = `${pct}%`;
+}
+
+function str(table, idx) {
+  return state.strings[table][idx] || "—";
 }
 
 function renderLegend() {
   const items = legendFor(state.color, state.strings);
   legendEl.innerHTML = items
-    .slice(0, 18)
+    .slice(0, 16)
     .map((it) => `<div><span class="swatch" style="background:${it.color}"></span>${it.label}</div>`)
     .join("");
 }
@@ -92,23 +115,16 @@ function paint() {
   });
 }
 
-function str(table, idx) {
-  return state.strings[table][idx] || "—";
-}
-
 function renderInspector() {
   const n = state.selected;
   if (!n) {
-    inspectorEl.textContent = "No cell selected.";
+    inspectorEl.textContent = state.tour ? "Touring. Click Exit to poke cells." : "Click a soma, or start a tour.";
     return;
   }
   const { up, down } = partnerEntries(n, state.partners, state.byId, state.strings);
   const li = (rows) =>
     rows
-      .map(
-        (r) =>
-          `<li data-id="${r.id}"><span>${r.type}</span><span class="w">${r.weight}</span></li>`
-      )
+      .map((r) => `<li data-id="${r.id}"><span>${r.type}</span><span class="w">${r.weight}</span></li>`)
       .join("");
   inspectorEl.innerHTML = `
     <div class="id">${n.id}</div>
@@ -117,41 +133,57 @@ function renderInspector() {
     <div>${str("dimorphism", n.dimorphism)} · ${str("fruDsx", n.fruDsx)}</div>
     <div>in ${n.wIn} · out ${n.wOut}</div>
     <h2>Upstream</h2>
-    <ul class="partners" id="up">${li(up)}</ul>
+    <ul class="partners">${li(up)}</ul>
     <h2>Downstream</h2>
-    <ul class="partners" id="down">${li(down)}</ul>
+    <ul class="partners">${li(down)}</ul>
   `;
 }
 
-async function showSkeletons(ids) {
-  const segs = [];
-  for (const id of ids.slice(0, 80)) {
-    const s = await loadSwc(id);
-    if (s && s.length) segs.push(s);
+function showArbors(ids) {
+  if (!state.lace) {
+    setSkeletonFloats(overlay, null);
+    return;
   }
-  setSkeletonLines(overlay, segs);
+  setSkeletonFloats(overlay, arborFloats(state.lace, ids, 80));
 }
 
-async function selectNeuron(n, { fromTour = false } = {}) {
-  state.selected = n;
-  if (!fromTour) {
-    state.tour = null;
+function markTourButtons() {
+  for (const b of tourBtnsEl.querySelectorAll("button")) {
+    b.classList.toggle("active", Boolean(state.tour) && b.dataset.story === state.tour.id);
   }
-  setPartnerLines(overlay, n, state.partners, state.byId);
-  paint();
-  renderInspector();
-  if (n) {
-    setStatus(`${n.id}  ${str("type", n.type)}`);
-    await showSkeletons([n.id]);
-  } else {
-    setSkeletonLines(overlay, []);
-    setStatus(`${state.pack.n.toLocaleString()} traced · ${state.points.userData.soma.length.toLocaleString()} somas`);
+  playBtn.classList.toggle("active", state.playing);
+  playBtn.textContent = state.playing ? "Pause" : "Play";
+}
+
+function setPlate(view, focusedCount) {
+  if (!view) {
+    plate.hidden = true;
+    return;
   }
+  plate.hidden = false;
+  document.getElementById("plate-kicker").textContent =
+    `${view.story.title}  ·  ${view.index + 1} of ${view.story.steps.length}  ·  ${focusedCount.toLocaleString()} cells`;
+  document.getElementById("plate-title").textContent = view.title;
+  document.getElementById("plate-copy").textContent = view.narration;
+  document.getElementById("plate-beats").innerHTML = view.story.steps
+    .map((_, i) => `<li class="${i === view.index ? "on" : ""}"></li>`)
+    .join("");
+}
+
+function flyTo(neurons) {
+  const pose = focusPose(neurons);
+  if (!pose) {
+    goCamera(world.camera, world.controls, "whole", world.cameras);
+    return;
+  }
+  tweenTo(camAnim, world.camera, world.controls, pose, 1400, reduced);
 }
 
 function applyTour() {
   if (!state.tour) {
-    narrationEl.textContent = "Click a soma. Upstream edges stain cyan, downstream gold.";
+    plate.hidden = true;
+    setLaceDim(state.laceMesh, false);
+    updateFocusCloud(focusCloud, [], state.strings, state.color);
     paint();
     return;
   }
@@ -160,18 +192,66 @@ function applyTour() {
   state.selected = null;
   document.getElementById("color").value = view.color;
   renderLegend();
-  narrationEl.textContent = `${view.label} — ${view.title}. ${view.narration}`;
   const focused = [...view.focus].map((id) => state.byId.get(id)).filter((n) => n && n.hasSoma);
-  if (focused.length) {
-    frameFocus(world.camera, world.controls, focused);
-  } else {
-    goCamera(world.camera, world.controls, view.camera, world.cameras);
-  }
+  flyTo(focused.length ? focused : state.points.userData.soma);
   setPartnerLines(overlay, null, null, state.byId);
-  inspectorEl.innerHTML = `<div>${focused.length.toLocaleString()} cells with soma</div><div>${view.step.title}</div>`;
-  setStatus(`${view.label} · ${focused.length.toLocaleString()} somas`);
+  setLaceDim(state.laceMesh, true);
+  updateFocusCloud(focusCloud, focused.slice(0, 4000), state.strings, state.color);
+  setPlate(view, focused.length);
+  renderInspector();
+  markTourButtons();
   paint();
-  showSkeletons(view.skeletonIds);
+  showArbors(view.skeletonIds);
+  state.playAt = performance.now();
+}
+
+function exitTour() {
+  state.tour = null;
+  state.playing = false;
+  plate.hidden = true;
+  setLaceDim(state.laceMesh, false);
+  updateFocusCloud(focusCloud, [], state.strings, state.color);
+  markTourButtons();
+  selectNeuron(null);
+}
+
+function startTour(id, index = 0) {
+  state.tour = state.stories.find((s) => s.id === id) || state.stories[0];
+  state.tourIndex = index;
+  applyTour();
+}
+
+function stepTour(delta) {
+  if (!state.tour) return;
+  const n = state.tour.steps.length;
+  state.tourIndex = (state.tourIndex + delta + n) % n;
+  applyTour();
+}
+
+function togglePlay() {
+  if (!state.tour) startTour("courtship");
+  state.playing = !state.playing;
+  state.playAt = performance.now();
+  markTourButtons();
+}
+
+function selectNeuron(n) {
+  state.selected = n;
+  if (n) {
+    state.tour = null;
+    state.playing = false;
+    plate.hidden = true;
+    markTourButtons();
+    setLaceDim(state.laceMesh, true);
+    updateFocusCloud(focusCloud, [n], state.strings, state.color);
+  } else {
+    setLaceDim(state.laceMesh, false);
+    updateFocusCloud(focusCloud, [], state.strings, state.color);
+  }
+  setPartnerLines(overlay, n, state.partners, state.byId);
+  paint();
+  renderInspector();
+  showArbors(n ? [n.id] : []);
 }
 
 function search(q) {
@@ -180,16 +260,22 @@ function search(q) {
   if (/^\d+$/.test(q)) {
     const n = state.byId.get(Number(q));
     if (n) selectNeuron(n);
-    else setStatus(`no body ${q}`);
     return;
   }
   const ql = q.toLowerCase();
-  const hit = state.neurons.find((n) => n.hasSoma && (state.strings.type[n.type] || "").toLowerCase().includes(ql));
+  const hit = state.neurons.find(
+    (n) => n.hasSoma && (state.strings.type[n.type] || "").toLowerCase().includes(ql)
+  );
   if (hit) selectNeuron(hit);
-  else setStatus(`no type matching ${q}`);
+}
+
+function bumpInput() {
+  state.lastInput = performance.now();
+  state.idle = false;
 }
 
 canvas.addEventListener("pointerdown", (ev) => {
+  bumpInput();
   if (ev.button !== 0) return;
   const rect = canvas.getBoundingClientRect();
   state.mouse.x = ((ev.clientX - rect.left) / rect.width) * 2 - 1;
@@ -197,6 +283,10 @@ canvas.addEventListener("pointerdown", (ev) => {
   state.raycaster.setFromCamera(state.mouse, world.camera);
   const hit = nearestSoma(state.raycaster.ray, state.points, 12);
   if (hit) selectNeuron(hit);
+});
+canvas.addEventListener("wheel", bumpInput, { passive: true });
+canvas.addEventListener("pointermove", (ev) => {
+  if (ev.buttons) bumpInput();
 });
 
 document.getElementById("search").addEventListener("keydown", (ev) => {
@@ -206,6 +296,7 @@ document.getElementById("color").addEventListener("change", (ev) => {
   state.color = ev.target.value;
   renderLegend();
   paint();
+  if (state.tour) applyTour();
 });
 filtersEl.addEventListener("click", (ev) => {
   const chip = ev.target.closest(".chip");
@@ -222,69 +313,130 @@ inspectorEl.addEventListener("click", (ev) => {
   const n = state.byId.get(Number(li.dataset.id));
   if (n) selectNeuron(n);
 });
-document.getElementById("prev").addEventListener("click", () => {
-  if (!state.tour) return;
-  state.tourIndex = (state.tourIndex + state.tour.steps.length - 1) % state.tour.steps.length;
-  applyTour();
-});
-document.getElementById("next").addEventListener("click", () => {
-  if (!state.tour) return;
-  state.tourIndex = (state.tourIndex + 1) % state.tour.steps.length;
-  applyTour();
-});
-document.getElementById("clear").addEventListener("click", () => {
-  state.tour = null;
-  for (const b of tourBtnsEl.querySelectorAll("button")) b.classList.remove("active");
-  selectNeuron(null);
-  narrationEl.textContent = "Click a soma. Upstream edges stain cyan, downstream gold.";
+document.getElementById("prev").addEventListener("click", () => stepTour(-1));
+document.getElementById("next").addEventListener("click", () => stepTour(1));
+document.getElementById("clear").addEventListener("click", exitTour);
+playBtn.addEventListener("click", togglePlay);
+
+window.addEventListener("keydown", (ev) => {
+  if (ev.target && ["INPUT", "SELECT", "TEXTAREA"].includes(ev.target.tagName)) return;
+  if (ev.key === " ") {
+    ev.preventDefault();
+    togglePlay();
+  } else if (ev.key === "ArrowRight") stepTour(1);
+  else if (ev.key === "ArrowLeft") stepTour(-1);
+  else if (ev.key === "Escape") exitTour();
+  else if (ev.key === "1") startTour("courtship");
+  else if (ev.key === "2") startTour("walking");
+  else if (ev.key === "3") startTour("vision");
+  else if (ev.key === "/") {
+    ev.preventDefault();
+    document.getElementById("search").focus();
+  }
 });
 
-function tick() {
+function tickScale() {
+  const el = document.getElementById("scale");
+  const bar = el.querySelector("i");
+  const dist = world.camera.position.distanceTo(world.controls.target);
+  const fov = (world.camera.fov * Math.PI) / 180;
+  const worldH = 2 * Math.tan(fov / 2) * dist;
+  const umPerPx = worldH / Math.max(canvas.clientHeight, 1);
+  const nice = [10, 20, 50, 100, 200, 500];
+  const target = 80 * umPerPx;
+  const um = nice.reduce((best, v) => (Math.abs(v - target) < Math.abs(best - target) ? v : best), nice[0]);
+  bar.style.width = `${Math.max(24, um / umPerPx)}px`;
+  document.getElementById("scale-label").textContent = `${um} µm`;
+}
+
+function tick(now) {
   setOverlayResolution(overlay, canvas.clientWidth, canvas.clientHeight);
+  const tweening = tickTween(camAnim, world.camera, world.controls, now);
+  if (state.playing && state.tour && now - state.playAt > 5500) stepTour(1);
+  if (!reduced && !tweening && now - state.lastInput > 4000) {
+    const tgt = world.controls.target;
+    const p = world.camera.position;
+    const dx = p.x - tgt.x;
+    const dz = p.z - tgt.z;
+    const r = Math.hypot(dx, dz);
+    if (r > 1) {
+      const ang = Math.atan2(dz, dx) + 0.001;
+      world.camera.position.x = tgt.x + Math.cos(ang) * r;
+      world.camera.position.z = tgt.z + Math.sin(ang) * r;
+    }
+  }
+  if (!reduced && focusCloud.visible) {
+    focusCloud.material.size = 13 + Math.sin(now * 0.003) * 2.5;
+  }
   world.controls.update();
   world.renderer.render(world.scene, world.camera);
+  tickScale();
   requestAnimationFrame(tick);
 }
-tick();
+requestAnimationFrame(tick);
 
 try {
-  const [{ pack, neurons, byId, strings }, partners, stories, lacePos] = await Promise.all([
-    loadNeurons(),
-    loadPartners(),
-    loadStories(),
-    loadLace().catch((err) => {
-      console.warn(err);
-      return new Float32Array();
-    }),
+  progress("neurons", 15);
+  const neuronsP = loadNeurons();
+  progress("connectome", 40);
+  const partnersP = loadPartners();
+  const storiesP = loadStories();
+  progress("arbors", 70);
+  const laceP = loadLace().catch((err) => {
+    console.warn(err);
+    return { positions: new Float32Array(), byId: new Map() };
+  });
+  const [{ pack, neurons, byId, strings }, partners, stories, lace] = await Promise.all([
+    neuronsP,
+    partnersP,
+    storiesP,
+    laceP,
   ]);
+  progress("drawing", 92);
   state.pack = pack;
   state.neurons = neurons;
   state.byId = byId;
   state.strings = strings;
   state.partners = partners;
   state.stories = stories;
+  state.lace = lace;
   state.points = buildCloud(neurons, strings, state.color);
   world.scene.add(state.points);
-  if (lacePos.length) world.scene.add(makeLace(lacePos));
+  if (lace.positions.length) {
+    state.laceMesh = makeLace(lace.positions);
+    world.scene.add(state.laceMesh);
+  }
   world.cameras = camerasFromCloud(state.points);
-  goCamera(world.camera, world.controls, "whole", world.cameras);
+  const intro = focusPose(state.points.userData.soma);
+  if (intro) {
+    world.camera.position.copy(intro.pos).multiplyScalar(1.35);
+    world.controls.target.copy(intro.target);
+    tweenTo(camAnim, world.camera, world.controls, intro, 2200, reduced);
+  }
   renderLegend();
   renderFilters();
+  const typeCount = new Map();
+  for (const n of neurons) {
+    const t = strings.type[n.type];
+    if (t) typeCount.set(t, (typeCount.get(t) || 0) + 1);
+  }
+  const hints = [...typeCount.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 80)
+    .map(([t]) => `<option value="${t}">`)
+    .join("");
+  document.getElementById("type-hints").innerHTML = hints;
   tourBtnsEl.innerHTML = stories
-    .map((s) => `<button type="button" data-story="${s.id}">${s.title}</button>`)
+    .map((s, i) => `<button type="button" data-story="${s.id}">${i + 1} ${s.title}</button>`)
     .join("");
   tourBtnsEl.addEventListener("click", (ev) => {
     const btn = ev.target.closest("button");
     if (!btn) return;
-    state.tour = stories.find((s) => s.id === btn.dataset.story);
-    state.tourIndex = 0;
-    for (const b of tourBtnsEl.querySelectorAll("button")) {
-      b.classList.toggle("active", b === btn);
-    }
-    applyTour();
+    startTour(btn.dataset.story);
   });
-  setStatus(`${pack.n.toLocaleString()} traced · ${state.points.userData.soma.length.toLocaleString()} somas`);
+  progress("ready", 100);
+  requestAnimationFrame(() => boot.classList.add("gone"));
 } catch (err) {
-  setStatus(err.message);
+  bootMsg.textContent = err.message;
   console.error(err);
 }

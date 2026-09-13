@@ -1,11 +1,16 @@
-const RUNTIME = "/data/runtime";
+export const RUNTIME = new URL("../../data/runtime/", import.meta.url).href;
 
-export async function loadNeurons() {
-  const resp = await fetch(`${RUNTIME}/neurons.json.gz`);
-  if (!resp.ok) throw new Error(`neurons.json.gz ${resp.status}`);
+async function fetchOk(path) {
+  const resp = await fetch(new URL(path, RUNTIME));
+  if (!resp.ok) throw new Error(`${path} ${resp.status}`);
+  return resp;
+}
+
+export async function loadNeurons(onProgress) {
+  onProgress?.("neurons");
+  const resp = await fetchOk("neurons.json.gz");
   const ds = new DecompressionStream("gzip");
-  const stream = resp.body.pipeThrough(ds);
-  const text = await new Response(stream).text();
+  const text = await new Response(resp.body.pipeThrough(ds)).text();
   const pack = JSON.parse(text);
   const neurons = [];
   const byId = new Map();
@@ -34,9 +39,9 @@ export async function loadNeurons() {
   return { pack, neurons, byId, strings: pack.strings };
 }
 
-export async function loadPartners() {
-  const resp = await fetch(`${RUNTIME}/partners.bin`);
-  if (!resp.ok) throw new Error(`partners.bin ${resp.status}`);
+export async function loadPartners(onProgress) {
+  onProgress?.("connectome");
+  const resp = await fetchOk("partners.bin");
   const buf = await resp.arrayBuffer();
   const view = new DataView(buf);
   const magic = String.fromCharCode(view.getUint8(0), view.getUint8(1), view.getUint8(2), view.getUint8(3));
@@ -46,9 +51,7 @@ export async function loadPartners() {
   const kOut = view.getUint16(14, true);
   let offset = 16;
   const ids = new Array(n);
-  for (let i = 0; i < n; i++, offset += 8) {
-    ids[i] = Number(view.getBigInt64(offset, true));
-  }
+  for (let i = 0; i < n; i++, offset += 8) ids[i] = Number(view.getBigInt64(offset, true));
   const rows = new Map();
   for (let i = 0; i < n; i++) {
     const inId = new Array(kIn);
@@ -68,43 +71,52 @@ export async function loadStories() {
   const names = ["courtship", "walking", "vision"];
   const stories = [];
   for (const name of names) {
-    const resp = await fetch(`${RUNTIME}/stories/${name}.json`);
-    if (!resp.ok) throw new Error(`${name}.json ${resp.status}`);
+    const resp = await fetchOk(`stories/${name}.json`);
     stories.push(await resp.json());
   }
   return stories;
 }
 
-export async function loadLace() {
-  const resp = await fetch(`${RUNTIME}/lace.bin`);
-  if (!resp.ok) throw new Error(`lace.bin ${resp.status}`);
+export async function loadLace(onProgress) {
+  onProgress?.("arbors");
+  const resp = await fetchOk("lace.bin");
   const buf = await resp.arrayBuffer();
   const view = new DataView(buf);
   const magic = String.fromCharCode(view.getUint8(0), view.getUint8(1), view.getUint8(2), view.getUint8(3));
   if (magic !== "LACE") throw new Error(`bad lace magic ${magic}`);
-  const nSeg = view.getUint32(8, true);
-  return new Float32Array(buf, 12, nSeg * 6);
+  const version = view.getUint32(4, true);
+  if (version === 1) {
+    const nSeg = view.getUint32(8, true);
+    return { positions: new Float32Array(buf, 12, nSeg * 6), byId: new Map() };
+  }
+  const nBodies = view.getUint32(8, true);
+  const nSeg = view.getUint32(12, true);
+  let offset = 16;
+  const byId = new Map();
+  for (let i = 0; i < nBodies; i++) {
+    const id = Number(view.getBigInt64(offset, true));
+    const first = view.getUint32(offset + 8, true);
+    const n = view.getUint32(offset + 12, true);
+    byId.set(id, { first, n });
+    offset += 16;
+  }
+  return { positions: new Float32Array(buf, offset, nSeg * 6), byId };
 }
 
-export async function loadSwc(bodyId) {
-  const resp = await fetch(`${RUNTIME}/skeletons/${bodyId}.swc`);
-  if (!resp.ok) return null;
-  const text = await resp.text();
-  const points = new Map();
-  const links = [];
-  for (const line of text.split("\n")) {
-    const s = line.trim();
-    if (!s || s.startsWith("#")) continue;
-    const p = s.split(/\s+/);
-    if (p.length < 7) continue;
-    const n = Number(p[0]);
-    points.set(n, [Number(p[2]), Number(p[3]), Number(p[4])]);
-    links.push([n, Number(p[6])]);
+export function arborFloats(lace, bodyIds, cap = 80) {
+  const parts = [];
+  let total = 0;
+  for (const id of bodyIds.slice(0, cap)) {
+    const rec = lace.byId.get(id);
+    if (!rec || !rec.n) continue;
+    parts.push(lace.positions.subarray(rec.first * 6, (rec.first + rec.n) * 6));
+    total += rec.n * 6;
   }
-  const segments = [];
-  for (const [n, parent] of links) {
-    if (parent < 0 || !points.has(parent) || !points.has(n)) continue;
-    segments.push(points.get(parent), points.get(n));
+  const out = new Float32Array(total);
+  let o = 0;
+  for (const p of parts) {
+    out.set(p, o);
+    o += p.length;
   }
-  return segments;
+  return out;
 }

@@ -1,7 +1,8 @@
-data/runtime/
 data/*.feather
+data/runtime/skeletons/
 __pycache__/
 .pytest_cache/
 .venv/
 *.pyc
 .DS_Store
+.idea/

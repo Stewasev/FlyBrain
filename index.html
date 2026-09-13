@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Male CNS atlas — Drosophila melanogaster ♂</title>
+  <meta name="description" content="Interactive 3D atlas of the adult male Drosophila central nervous system connectome (Janelia Male CNS v1.0)." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Fragment+Mono&family=Fraunces:ital,opsz,wght@0,9..144,360;0,9..144,500;1,9..144,360&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="web/css/atlas.css" />
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "./web/vendor/three.module.js",
+      "three/addons/": "./web/vendor/jsm/"
+    }
+  }
+  </script>
+</head>
+<body>
+  <canvas id="view"></canvas>
+  <div id="boot">
+    <div><em>Drosophila melanogaster</em><span class="sex">♂</span></div>
+    <div class="bar"><span id="boot-bar"></span></div>
+    <div id="boot-msg">loading the male CNS</div>
+  </div>
+  <header class="specimen">
+    <h1><em>Drosophila melanogaster</em><span class="sex">♂</span></h1>
+    <p>Male CNS · v1.0 · 8 nm FIB-SEM</p>
+  </header>
+  <div id="plate" hidden>
+    <p class="kicker" id="plate-kicker"></p>
+    <h2 id="plate-title"></h2>
+    <p class="copy" id="plate-copy"></p>
+    <ol class="beats" id="plate-beats"></ol>
+  </div>
+  <aside class="logbook" id="logbook">
+    <h2>Tours</h2>
+    <div class="row" id="tour-btns"></div>
+    <div class="row" style="margin-top:6px">
+      <button type="button" id="prev">Prev</button>
+      <button type="button" id="play">Play</button>
+      <button type="button" id="next">Next</button>
+      <button type="button" id="clear">Exit</button>
+    </div>
+    <h2>Find</h2>
+    <input type="search" id="search" placeholder="type or bodyId" autocomplete="off" list="type-hints" />
+    <datalist id="type-hints"></datalist>
+    <h2>Stain</h2>
+    <select id="color">
+      <option value="superclass">superclass</option>
+      <option value="nt">neurotransmitter</option>
+      <option value="dimorphism">dimorphism</option>
+      <option value="fruDsx">fru / dsx</option>
+    </select>
+    <details class="logfold">
+      <summary>Hide regions</summary>
+      <div class="chips" id="filters"></div>
+    </details>
+    <details class="logfold">
+      <summary>Stain key</summary>
+      <div class="legend" id="legend"></div>
+    </details>
+    <h2>Cell</h2>
+    <div class="inspector" id="inspector">Click a soma, or start a tour.</div>
+  </aside>
+  <p class="credit">Berg et al., Cell 2026 · FlyEM / Cambridge / MRC LMB / Google Research · data CC-BY</p>
+  <div id="scale"><i></i><span id="scale-label">50 µm</span></div>
+  <p class="keys">drag · scroll · click · 1–3 tours · space plays · arrows step</p>
+  <script type="module" src="web/js/main.js"></script>
+</body>
+</html>

@@ -22,6 +22,8 @@ def test_pack_lace_roundtrip(tmp_path: Path):
     assert n == 1
     lace = read_lace(out)
     assert lace["n_segments"] == 1
+    assert lace["version"] == 2
+    assert lace["bodies"][0]["id"] == 11
     pos = lace["positions"]
     assert pos[0:3] == [0.0, 0.0, 0.0]
     assert pos[3:6] == [4.0, 0.0, 0.0]

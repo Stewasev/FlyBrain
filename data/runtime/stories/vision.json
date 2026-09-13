@@ -1,0 +1,118 @@
+{
+  "id": "vision",
+  "title": "Vision",
+  "subtitle": "Motion detectors to feature VPNs",
+  "steps": [
+    {
+      "id": "t4t5",
+      "title": "T4 / T5 motion",
+      "narration": "T4 and T5 cells tile both optic lobes and detect motion. This is a spatial sample of the lattice, not the first 16 IDs.",
+      "camera": "optic",
+      "color": "superclass",
+      "select": {
+        "typePrefix": [
+          "T4",
+          "T5"
+        ],
+        "sample": 16
+      },
+      "showSkeletons": true,
+      "showPartners": false,
+      "bodyIds": [
+        191616,
+        105972,
+        155658,
+        144196,
+        140061,
+        122723,
+        160624,
+        136375,
+        145605,
+        155306,
+        104823,
+        135701,
+        123224,
+        123058,
+        102118,
+        549339
+      ]
+    },
+    {
+      "id": "features",
+      "title": "Feature detectors",
+      "narration": "LC10a tracks a small moving fly. LC4 and LPLC2 fire for looming objects.",
+      "camera": "optic",
+      "color": "superclass",
+      "select": {
+        "typeExact": [
+          "LC10a",
+          "LC4",
+          "LPLC2"
+        ],
+        "sample": 24
+      },
+      "showSkeletons": true,
+      "showPartners": false,
+      "bodyIds": [
+        82439,
+        85707,
+        33137,
+        22328,
+        557990,
+        25400,
+        30895,
+        22922,
+        18189,
+        61545,
+        39620,
+        27023,
+        38020,
+        22847,
+        518439,
+        41089,
+        21313,
+        20859,
+        18929,
+        28143,
+        30087,
+        26963,
+        20542,
+        68728
+      ]
+    },
+    {
+      "id": "widefield",
+      "title": "Into the central brain",
+      "narration": "LC6 and LC11 take optic-lobe features into the central brain.",
+      "camera": "brain",
+      "color": "superclass",
+      "select": {
+        "typeExact": [
+          "LC6",
+          "LC11"
+        ],
+        "sample": 16
+      },
+      "showSkeletons": true,
+      "showPartners": false,
+      "bodyIds": [
+        89700,
+        42265,
+        13635,
+        22648,
+        514869,
+        29904,
+        31607,
+        51695,
+        45817,
+        23716,
+        64823,
+        29209,
+        38881,
+        133366,
+        38484,
+        28457
+      ]
+    }
+  ]
+}

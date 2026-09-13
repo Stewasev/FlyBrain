@@ -28,8 +28,7 @@ export function createScene(canvas) {
   controls.rotateSpeed = 0.6;
   controls.zoomSpeed = 0.85;
 
-  const stage = buildStage();
-  scene.add(stage);
+  const stage = buildStage(420);
 
   function resize() {
     const w = canvas.clientWidth;
@@ -44,16 +43,16 @@ export function createScene(canvas) {
   return { renderer, scene, camera, controls, resize, cameras: CAMERAS };
 }
 
-function buildStage() {
+function buildStage(half = 420) {
   const group = new THREE.Group();
-  const mat = new THREE.LineBasicMaterial({ color: 0x3a342c, transparent: true, opacity: 0.7 });
-  const half = 220;
-  const ticks = 11;
+  const mat = new THREE.LineBasicMaterial({ color: 0x3a342c, transparent: true, opacity: 0.55 });
+  const y = -240;
+  const ticks = 13;
   const positions = [];
   for (let i = 0; i < ticks; i++) {
     const x = -half + (i * (2 * half)) / (ticks - 1);
-    positions.push(x, -220, -half, x, -220, half);
-    positions.push(-half, -220, x, half, -220, x);
+    positions.push(x, y, -half, x, y, half);
+    positions.push(-half, y, x, half, y, x);
   }
   const geo = new THREE.BufferGeometry();
   geo.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
@@ -163,9 +162,9 @@ export function goCamera(camera, controls, name, cameras = CAMERAS) {
   controls.update();
 }
 
-export function frameFocus(camera, controls, neurons) {
+export function focusPose(neurons) {
   const pts = neurons.filter((n) => n && n.hasSoma);
-  if (!pts.length) return;
+  if (!pts.length) return null;
   const box = new THREE.Box3();
   const v = new THREE.Vector3();
   for (const n of pts) {
@@ -176,8 +175,87 @@ export function frameFocus(camera, controls, neurons) {
   const r = Math.max(size.x, size.y, size.z, 28);
   const dist = Math.max(r * 2.5, 80);
   const dir = new THREE.Vector3(1, 0.16, 0.1).normalize();
-  camera.position.copy(c).addScaledVector(dir, dist);
-  controls.target.copy(c);
+  return { pos: c.clone().addScaledVector(dir, dist), target: c, radius: r };
+}
+
+function easeInOut(t) {
+  return t < 0.5 ? 2 * t * t : 1 - (Math.pow(-2 * t + 2, 2) / 2);
+}
+
+export function tweenTo(anim, camera, controls, pose, ms, instant) {
+  if (!pose) return;
+  if (instant) {
+    camera.position.copy(pose.pos);
+    controls.target.copy(pose.target);
+    anim.active = false;
+    return;
+  }
+  anim.active = true;
+  anim.t0 = performance.now();
+  anim.dur = ms;
+  anim.fromPos = camera.position.clone();
+  anim.fromTarget = controls.target.clone();
+  anim.toPos = pose.pos.clone();
+  anim.toTarget = pose.target.clone();
+}
+
+export function tickTween(anim, camera, controls, now) {
+  if (!anim.active) return false;
+  const u = Math.min(1, (now - anim.t0) / anim.dur);
+  const e = easeInOut(u);
+  camera.position.lerpVectors(anim.fromPos, anim.toPos, e);
+  controls.target.lerpVectors(anim.fromTarget, anim.toTarget, e);
+  if (u >= 1) anim.active = false;
+  return true;
+}
+
+export function buildFocusCloud() {
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute("position", new THREE.BufferAttribute(new Float32Array(3), 3));
+  geo.setAttribute("color", new THREE.BufferAttribute(new Float32Array(3), 3));
+  const mat = new THREE.PointsMaterial({
+    size: 15,
+    map: somaSprite(),
+    vertexColors: true,
+    sizeAttenuation: true,
+    transparent: true,
+    opacity: 1,
+    depthWrite: false,
+    alphaTest: 0.08,
+  });
+  const points = new THREE.Points(geo, mat);
+  points.visible = false;
+  return points;
+}
+
+export function updateFocusCloud(points, neurons, strings, mode) {
+  if (!neurons.length) {
+    points.visible = false;
+    return;
+  }
+  const pos = new Float32Array(neurons.length * 3);
+  const col = new Float32Array(neurons.length * 3);
+  for (let i = 0; i < neurons.length; i++) {
+    const n = neurons[i];
+    pos[i * 3] = n.x;
+    pos[i * 3 + 1] = n.y;
+    pos[i * 3 + 2] = n.z;
+    const c = colorFor(mode, n, strings);
+    col[i * 3] = Math.min(1, c[0] * 1.25);
+    col[i * 3 + 1] = Math.min(1, c[1] * 1.25);
+    col[i * 3 + 2] = Math.min(1, c[2] * 1.25);
+  }
+  points.geometry.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+  points.geometry.setAttribute("color", new THREE.BufferAttribute(col, 3));
+  points.geometry.computeBoundingSphere();
+  points.visible = true;
+}
+
+export function frameFocus(camera, controls, neurons) {
+  const pose = focusPose(neurons);
+  if (!pose) return;
+  camera.position.copy(pose.pos);
+  controls.target.copy(pose.target);
   controls.update();
 }
 
